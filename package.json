@@ -1,0 +1,33 @@
+{
+  "name": "pje-bulk-kz",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "build": "tsc",
+    "dev": "ts-node --watch src/index.ts",
+    "chrome-debug": "./start-chrome-debug.sh",
+    "firefox-debug": "./start-firefox-debug.sh",
+    "connect": "echo '🔗 Conectando à sessão existente...' && ts-node src/index.ts",
+    "connect-dynamic": "ts-node src/connect-dynamic.ts",
+    "connect-firefox": "echo '🦊 Conectando ao Firefox...' && BROWSER_TYPE=firefox ts-node src/index.ts",
+    "manual-login": "LOGIN_WAIT_TIME=120 npm start",
+    "manual-login-firefox": "BROWSER_TYPE=firefox LOGIN_WAIT_TIME=120 npm start",
+    "server": "ts-node src/server.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "dotenv": "^17.2.1",
+    "playwright": "^1.54.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.3",
+    "express": "^5.1.0"
+  }
+}

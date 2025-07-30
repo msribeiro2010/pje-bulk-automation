@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PJE Bulk KZ - Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .form-container {
+            padding: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1em;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .results h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .success-list, .error-list {
+            margin-bottom: 20px;
+        }
+        
+        .success-item {
+            background: #d4edda;
+            color: #155724;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+        }
+        
+        .error-item {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            display: none;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .help-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ PJE Bulk KZ</h1>
+            <p>Automação para inclusão de perfis em órgãos julgadores</p>
+        </div>
+        
+        <div class="form-container">
+            <form id="automationForm">
+                <div class="form-group">
+                    <label for="pjeUrl">URL do PJE:</label>
+                    <input type="url" id="pjeUrl" name="pjeUrl" placeholder="https://pje.trt15.jus.br/pjekz/pessoa-fisica?pagina=1&tamanhoPagina=10&cpf=&situacao=1" required>
+                    <div class="help-text">URL completa da página de pessoa física do PJE (deixe o CPF vazio na URL)</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="cpf">CPF do Servidor:</label>
+                    <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" required>
+                    <div class="help-text">Digite o CPF do servidor que receberá os perfis</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="perfil">Perfil:</label>
+                    <select id="perfil" name="perfil" required>
+                        <option value="">Selecione...</option>
+                        <option value="Administrador">Administrador</option>
+                        <option value="Assessor">Assessor</option>
+                        <option value="Diretor de Central de Atendimento">Diretor de Central de Atendimento</option>
+                        <option value="Diretor de Secretaria">Diretor de Secretaria</option>
+                        <option value="Estagiário Conhecimento">Estagiário Conhecimento</option>
+                        <option value="Estagiário de Central de Atendimento">Estagiário de Central de Atendimento</option>
+                        <option value="Secretário de Audiência">Secretário de Audiência</option>
+                        <option value="Servidor">Servidor</option>
+                    </select>
+                    <div class="help-text">Escolha o perfil que será atribuído ao servidor</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="orgaos">Órgãos Julgadores:</label>
+                    <textarea id="orgaos" name="orgaos" placeholder="Digite os nomes dos órgãos julgadores, um por linha..." required></textarea>
+                    <div class="help-text">Digite um órgão julgador por linha. Exemplo:<br>
+                    Vara do Trabalho de Orlândia<br>
+                    1ª VT de Ribeirão Preto<br>
+                    2ª Vara do Trabalho de Franca</div>
+                </div>
+                
+                <button type="submit" class="btn" id="submitBtn">
+                    🚀 Iniciar Automação
+                </button>
+            </form>
+            
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processando automação... Isso pode levar alguns minutos.</p>
+            </div>
+            
+            <div class="results" id="results">
+                <h3>📊 Resultados da Automação</h3>
+                
+                <div class="success-list">
+                    <h4 style="color: #28a745;">✅ Órgãos Incluídos com Sucesso:</h4>
+                    <div id="successList"></div>
+                </div>
+                
+                <div class="error-list">
+                    <h4 style="color: #dc3545;">❌ Órgãos Não Encontrados ou com Erro:</h4>
+                    <div id="errorList"></div>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 5px;">
+                    <strong>📈 Estatísticas:</strong>
+                    <div id="stats"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.getElementById('automationForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const pjeUrl = document.getElementById('pjeUrl').value;
+            const cpf = document.getElementById('cpf').value;
+            const perfil = document.getElementById('perfil').value;
+            const orgaos = document.getElementById('orgaos').value.split('\n').filter(o => o.trim());
+            
+            if (!pjeUrl || !cpf || !perfil || orgaos.length === 0) {
+                alert('Por favor, preencha todos os campos!');
+                return;
+            }
+            
+            // Mostrar loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('submitBtn').disabled = true;
+            
+            try {
+                const response = await fetch('/api/run-automation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        pjeUrl: pjeUrl,
+                        cpf: cpf,
+                        perfil: perfil,
+                        orgaos: orgaos
+                    })
+                });
+                
+                const result = await response.json();
+                
+                // Esconder loading
+                document.getElementById('loading').style.display = 'none';
+                
+                // Mostrar resultados
+                displayResults(result);
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                document.getElementById('loading').style.display = 'none';
+                alert('Erro ao executar automação: ' + error.message);
+            } finally {
+                document.getElementById('submitBtn').disabled = false;
+            }
+        });
+        
+        function displayResults(result) {
+            const successList = document.getElementById('successList');
+            const errorList = document.getElementById('errorList');
+            const stats = document.getElementById('stats');
+            
+            // Limpar listas
+            successList.innerHTML = '';
+            errorList.innerHTML = '';
+            
+            // Adicionar sucessos
+            if (result.sucessos && result.sucessos.length > 0) {
+                result.sucessos.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'success-item';
+                    div.textContent = item;
+                    successList.appendChild(div);
+                });
+            } else {
+                successList.innerHTML = '<div style="color: #666; font-style: italic;">Nenhum órgão foi incluído com sucesso</div>';
+            }
+            
+            // Adicionar erros
+            if (result.erros && result.erros.length > 0) {
+                result.erros.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'error-item';
+                    div.textContent = item;
+                    errorList.appendChild(div);
+                });
+            } else {
+                errorList.innerHTML = '<div style="color: #666; font-style: italic;">Nenhum erro encontrado</div>';
+            }
+            
+            // Estatísticas
+            stats.innerHTML = `
+                <div>Total de órgãos processados: <strong>${result.total || 0}</strong></div>
+                <div>Sucessos: <strong style="color: #28a745;">${result.sucessos ? result.sucessos.length : 0}</strong></div>
+                <div>Erros: <strong style="color: #dc3545;">${result.erros ? result.erros.length : 0}</strong></div>
+                <div>Pulados: <strong style="color: #ffc107;">${result.pulados || 0}</strong></div>
+            `;
+            
+            // Mostrar resultados
+            document.getElementById('results').style.display = 'block';
+        }
+        
+        // Máscara para CPF
+        document.getElementById('cpf').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d)/, '$1.$2');
+            value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+            e.target.value = value;
+        });
+    </script>
+</body>
+</html>
