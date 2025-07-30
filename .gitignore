@@ -56,3 +56,4 @@ test-results/
 playwright-report/
 playwright/.cache/
 storageState.json
+.vercel
