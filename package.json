@@ -4,8 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "build": "tsc",
+    "start": "node dist/server.js",
+    "build": "tsc && cp -r public dist/",
     "dev": "ts-node --watch src/index.ts",
     "chrome-debug": "./start-chrome-debug.sh",
     "firefox-debug": "./start-firefox-debug.sh",

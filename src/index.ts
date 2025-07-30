@@ -12,6 +12,7 @@ import {
 
 const BASE_URL = process.env.PJE_URL!;
 const CPF = process.env.SERVIDORA_CPF!;
+const PERFIL = process.env.PERFIL || 'Servidor';
 const BROWSER_TYPE = process.env.BROWSER_TYPE || 'chrome'; // chrome ou firefox
 const LOGIN_WAIT_TIME = parseInt(process.env.LOGIN_WAIT_TIME || '30'); // segundos para aguardar login
 
@@ -369,7 +370,7 @@ async function main() {
 
       // Selecionar Órgão Julgador e salvar
       console.log('Selecionando Órgão Julgador...');
-      await selectOrgaoJulgador(page, oj);
+      await selectOrgaoJulgador(page, oj, PERFIL);
 
       // Confirma que apareceu na grade
       console.log('Verificando se OJ foi incluído...');
