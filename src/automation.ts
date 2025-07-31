@@ -325,12 +325,8 @@ async function searchByCPF(page: Page, cpf: string) {
 }
 
 async function generateReport(results: ProcessResult[], config: ConfigData) {
-  const outputDir = path.join(__dirname, '../data/outputs');
-  
-  // Criar diretório se não existir
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-  }
+  // Usar /tmp para compatibilidade com Vercel
+  const outputDir = '/tmp';
   
   // Gerar CSV
   const csvContent = [

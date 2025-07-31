@@ -57,7 +57,7 @@ app.post('/api/run-automation', async (req, res) => {
     
     console.log('🚀 Iniciando automação com:', { cpf, perfil, orgaos: orgaos.length, pjeUrl });
     
-    // Criar arquivo temporário com os dados
+    // Criar arquivo temporário com os dados no diretório /tmp (gravável no Vercel)
     const tempData = {
       cpf,
       perfil,
@@ -65,7 +65,7 @@ app.post('/api/run-automation', async (req, res) => {
       pjeUrl
     };
     
-    const tempFile = path.join(__dirname, '../data/temp-config.json');
+    const tempFile = path.join('/tmp', `config-${Date.now()}.json`);
     fs.writeFileSync(tempFile, JSON.stringify(tempData, null, 2));
     
     // Executar a automação
@@ -111,7 +111,7 @@ function runAutomation(configFile: string): Promise<AutomationResult> {
       if (code === 0) {
         try {
           // Tentar ler o relatório gerado
-          const reportPath = path.join(__dirname, '../data/outputs/relatorio.csv');
+          const reportPath = path.join('/tmp', 'relatorio.csv');
           if (fs.existsSync(reportPath)) {
             const result = parseReport(reportPath);
             resolve(result);
