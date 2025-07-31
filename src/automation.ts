@@ -40,23 +40,46 @@ async function main() {
   const results: ProcessResult[] = [];
   
   try {
-    // Conectar ao Chrome existente
-    browser = await chromium.connectOverCDP('http://localhost:9222');
-    const contexts = browser.contexts();
+    // Detectar ambiente de produção
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
     
-    if (contexts.length === 0) {
-      throw new Error('Nenhum contexto encontrado no Chrome');
+    if (isProduction) {
+      // Em produção, usar Playwright em modo headless
+      console.log('🌐 Ambiente de produção detectado - usando Playwright headless');
+      browser = await chromium.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--no-first-run',
+          '--no-zygote',
+          '--disable-gpu'
+        ]
+      });
+      const context = await browser.newContext();
+      page = await context.newPage();
+      console.log('✅ Browser headless iniciado');
+    } else {
+      // Em desenvolvimento, conectar ao Chrome existente
+      browser = await chromium.connectOverCDP('http://localhost:9222');
+      const contexts = browser.contexts();
+      
+      if (contexts.length === 0) {
+        throw new Error('Nenhum contexto encontrado no Chrome');
+      }
+      
+      const context = contexts[0];
+      const pages = context.pages();
+      
+      if (pages.length === 0) {
+        throw new Error('Nenhuma página encontrada');
+      }
+      
+      page = pages[0];
+      console.log('🔗 Conectado ao Chrome existente');
     }
-    
-    const context = contexts[0];
-    const pages = context.pages();
-    
-    if (pages.length === 0) {
-      throw new Error('Nenhuma página encontrada');
-    }
-    
-    page = pages[0];
-    console.log('🔗 Conectado ao Chrome existente');
     
     // Verificar se estamos na página correta ou navegar para a URL fornecida
     const currentUrl = page.url();
@@ -68,13 +91,14 @@ async function main() {
       throw new Error(`URL inválida fornecida: ${config.pjeUrl}`);
     }
     
-    if (!currentUrl.includes(targetDomain)) {
+    // Em produção, sempre navegar para a URL. Em desenvolvimento, verificar se já estamos na página correta
+    if (isProduction || !currentUrl.includes(targetDomain)) {
       console.log(`🌐 Navegando para: ${config.pjeUrl}`);
       try {
         // Tentar navegação com diferentes estratégias
         await page.goto(config.pjeUrl, { 
           waitUntil: 'networkidle', 
-          timeout: 30000 
+          timeout: 60000 
         });
         console.log('✅ Navegação concluída com networkidle');
       } catch (navError) {
@@ -82,16 +106,16 @@ async function main() {
         try {
           await page.goto(config.pjeUrl, { 
             waitUntil: 'domcontentloaded', 
-            timeout: 30000 
+            timeout: 60000 
           });
           console.log('✅ Navegação concluída com domcontentloaded');
         } catch (navError2) {
           console.log('⚠️ Falha com domcontentloaded, tentando navegação simples...');
-          await page.goto(config.pjeUrl, { timeout: 30000 });
+          await page.goto(config.pjeUrl, { timeout: 60000 });
           console.log('✅ Navegação simples concluída');
         }
       }
-      await page.waitForTimeout(3000); // Aguarda a página carregar
+      await page.waitForTimeout(5000); // Aguarda a página carregar
     }
     
     console.log('✅ Página do PJE detectada');
