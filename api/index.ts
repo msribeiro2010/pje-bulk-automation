@@ -28,8 +28,31 @@ app.post('/api/run-automation', async (req, res) => {
   try {
     const { cpf, perfil, orgaos, pjeUrl } = req.body;
     
+    console.log('🔍 DEBUG - Dados recebidos na API:');
+    console.log('- CPF:', cpf);
+    console.log('- Perfil:', perfil);
+    console.log('- PJE URL:', pjeUrl);
+    console.log('- Órgãos (tipo):', typeof orgaos);
+    console.log('- Órgãos (é array):', Array.isArray(orgaos));
+    console.log('- Órgãos (conteúdo):', JSON.stringify(orgaos, null, 2));
+    
     if (!cpf || !perfil || !orgaos || !Array.isArray(orgaos) || !pjeUrl) {
+      console.log('❌ Validação falhou - dados inválidos');
       return res.status(400).json({ error: 'Dados inválidos - CPF, perfil, órgãos e URL do PJE são obrigatórios' });
+    }
+    
+    // Verificar se os órgãos não estão vazios
+    const orgaosValidos = orgaos.filter(o => o && o.trim());
+    console.log('✅ Órgãos válidos após filtro:', orgaosValidos.length);
+    
+    if (orgaosValidos.length === 0) {
+      console.log('❌ ERRO: Nenhum órgão válido encontrado!');
+      return res.json({
+        total: 0,
+        sucessos: [],
+        erros: ['Nenhum órgão válido foi fornecido'],
+        pulados: 0
+      });
     }
     
     console.log('🚀 Iniciando automação com:', { cpf, perfil, orgaos: orgaos.length, pjeUrl });

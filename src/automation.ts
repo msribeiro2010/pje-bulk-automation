@@ -34,6 +34,22 @@ async function main() {
   console.log(`🚀 Iniciando automação para CPF: ${config.cpf}`);
   console.log(`📋 Perfil: ${config.perfil}`);
   console.log(`🏛️ Órgãos a processar: ${config.orgaos.length}`);
+  console.log(`🔍 DEBUG - Órgãos recebidos:`, JSON.stringify(config.orgaos, null, 2));
+  
+  // Verificar se os órgãos não estão vazios
+  const orgaosValidos = config.orgaos.filter(o => o && o.trim());
+  console.log(`✅ Órgãos válidos após filtro: ${orgaosValidos.length}`);
+  
+  if (orgaosValidos.length === 0) {
+    console.log('❌ ERRO: Nenhum órgão válido encontrado!');
+    console.log('📋 RESUMO FINAL:');
+    console.log(`✅ Sucessos: 0`);
+    console.log(`❌ Erros: 0`);
+    console.log(`⏭️ Pulados: 0`);
+    console.log(`🔄 Já Incluídos: 0`);
+    console.log(`📋 Total: 0`);
+    return;
+  }
   
   let browser: Browser | null = null;
   let page: Page | null = null;
