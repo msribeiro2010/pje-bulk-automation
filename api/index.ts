@@ -57,23 +57,23 @@ app.post('/api/run-automation', async (req, res) => {
     
     console.log('🚀 Iniciando automação com:', { cpf, perfil, orgaos: orgaos.length, pjeUrl });
     
-    // Criar arquivo temporário com os dados no diretório /tmp (gravável no Vercel)
-    const tempData = {
+    // Criar arquivo de configuração temporário
+    const configFile = path.join('/tmp', `config-${Date.now()}.json`);
+    const config = {
       cpf,
       perfil,
-      orgaos,
+      orgaos: orgaosValidos,
       pjeUrl
     };
     
-    const tempFile = path.join('/tmp', `config-${Date.now()}.json`);
-    fs.writeFileSync(tempFile, JSON.stringify(tempData, null, 2));
+    fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
     
-    // Executar a automação
-    const result = await runAutomation(tempFile);
+    // Executar automação
+    const result = await runAutomation(configFile);
     
     // Limpar arquivo temporário
-    if (fs.existsSync(tempFile)) {
-      fs.unlinkSync(tempFile);
+    if (fs.existsSync(configFile)) {
+      fs.unlinkSync(configFile);
     }
     
     res.json(result);
@@ -87,7 +87,14 @@ app.post('/api/run-automation', async (req, res) => {
 // Função para executar a automação
 function runAutomation(configFile: string): Promise<AutomationResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn('ts-node', ['src/automation.ts', configFile], {
+    // Usar arquivo JS compilado em produção
+     const automationScript = process.env.NODE_ENV === 'production' 
+       ? path.join(__dirname, '..', 'src', 'automation.js')
+       : path.join(__dirname, '..', 'src', 'automation.ts');
+     
+     const command = process.env.NODE_ENV === 'production' ? 'node' : 'ts-node';
+    
+    const child = spawn(command, [automationScript, configFile], {
       cwd: path.join(__dirname, '..'),
       stdio: ['pipe', 'pipe', 'pipe']
     });
@@ -195,13 +202,8 @@ function parseOutput(output: string): AutomationResult {
   };
 }
 
-// Para desenvolvimento local
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`🌐 Servidor rodando em http://localhost:${PORT}`);
-    console.log('📱 Acesse a interface web para usar a automação');
-  });
-}
-
-// Export para Vercel (serverless)
-export default app;
+// Iniciar servidor
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor rodando em http://localhost:${PORT}`);
+  console.log('📱 Acesse a interface web para usar a automação');
+});

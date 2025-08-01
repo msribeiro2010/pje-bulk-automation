@@ -8,6 +8,7 @@ import {
   selectOrgaoJulgador,
   ojAlreadyAssigned 
 } from './helpers';
+import { AutomationController } from './automation-control';
 
 interface ConfigData {
   cpf: string;
@@ -31,10 +32,17 @@ async function main() {
   }
   
   const config: ConfigData = JSON.parse(fs.readFileSync(configFile, 'utf-8'));
+  
+  // Inicializar controlador de automação
+  const processId = `automation_${Date.now()}`;
+  const controller = new AutomationController(processId);
+  
   console.log(`🚀 Iniciando automação para CPF: ${config.cpf}`);
   console.log(`📋 Perfil: ${config.perfil}`);
   console.log(`🏛️ Órgãos a processar: ${config.orgaos.length}`);
   console.log(`🔍 DEBUG - Órgãos recebidos:`, JSON.stringify(config.orgaos, null, 2));
+  console.log(`🎮 ID do processo: ${processId}`);
+  console.log(`⏸️ Use a interface web para pausar/parar a automação`);
   
   // Verificar se os órgãos não estão vazios
   const orgaosValidos = config.orgaos.filter(o => o && o.trim());
@@ -55,9 +63,10 @@ async function main() {
   let page: Page | null = null;
   const results: ProcessResult[] = [];
   
+  // Detectar ambiente de produção
+  const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
+  
   try {
-    // Detectar ambiente de produção
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
     
     if (isProduction) {
       // Em produção, usar Playwright em modo headless
@@ -87,13 +96,21 @@ async function main() {
       }
       
       const context = contexts[0];
-      const pages = context.pages();
       
-      if (pages.length === 0) {
-        throw new Error('Nenhuma página encontrada');
-      }
+      // Criar uma nova página para a automação
+      page = await context.newPage();
       
-      page = pages[0];
+      // Configurar User-Agent e headers para evitar bloqueios
+      await page.setExtraHTTPHeaders({
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1'
+      });
+      
       console.log('🔗 Conectado ao Chrome existente');
     }
     
@@ -110,27 +127,44 @@ async function main() {
     // Em produção, sempre navegar para a URL. Em desenvolvimento, verificar se já estamos na página correta
     if (isProduction || !currentUrl.includes(targetDomain)) {
       console.log(`🌐 Navegando para: ${config.pjeUrl}`);
-      try {
-        // Tentar navegação com diferentes estratégias
-        await page.goto(config.pjeUrl, { 
-          waitUntil: 'networkidle', 
-          timeout: 60000 
-        });
-        console.log('✅ Navegação concluída com networkidle');
-      } catch (navError) {
-        console.log('⚠️ Falha com networkidle, tentando com domcontentloaded...');
-        try {
-          await page.goto(config.pjeUrl, { 
-            waitUntil: 'domcontentloaded', 
-            timeout: 60000 
-          });
-          console.log('✅ Navegação concluída com domcontentloaded');
-        } catch (navError2) {
-          console.log('⚠️ Falha com domcontentloaded, tentando navegação simples...');
-          await page.goto(config.pjeUrl, { timeout: 60000 });
-          console.log('✅ Navegação simples concluída');
-        }
+      
+      let navigationSuccess = false;
+       const strategies = [
+         { name: 'networkidle', options: { waitUntil: 'networkidle' as const, timeout: 60000 } },
+         { name: 'domcontentloaded', options: { waitUntil: 'domcontentloaded' as const, timeout: 60000 } },
+         { name: 'load', options: { waitUntil: 'load' as const, timeout: 60000 } },
+         { name: 'simples', options: { timeout: 60000 } }
+       ];
+       
+       for (const strategy of strategies) {
+         try {
+           console.log(`⏳ Tentando navegação com estratégia: ${strategy.name}`);
+           await page.goto(config.pjeUrl, strategy.options);
+           console.log(`✅ Navegação concluída com ${strategy.name}`);
+           navigationSuccess = true;
+           break;
+         } catch (navError) {
+           const errorMessage = navError instanceof Error ? navError.message : String(navError);
+           console.log(`⚠️ Falha com ${strategy.name}:`, errorMessage);
+           if (strategy.name === 'simples') {
+             // Se todas as estratégias falharam, tentar uma última vez sem waitUntil
+             try {
+               console.log('🔄 Última tentativa: navegação sem waitUntil');
+               await page.goto(config.pjeUrl);
+               console.log('✅ Navegação sem waitUntil concluída');
+               navigationSuccess = true;
+             } catch (finalError) {
+               const finalErrorMessage = finalError instanceof Error ? finalError.message : String(finalError);
+               console.error('❌ Todas as estratégias de navegação falharam:', finalErrorMessage);
+             }
+           }
+         }
+       }
+      
+      if (!navigationSuccess) {
+        throw new Error('Não foi possível navegar para a URL do PJE. Verifique se a URL está correta e se o site está acessível.');
       }
+      
       await page.waitForTimeout(5000); // Aguarda a página carregar
     }
     
@@ -153,31 +187,101 @@ async function main() {
     // Ir para a aba Servidor
     await goToServidorTab(page);
     
-    // Processar cada órgão
-    for (let i = 0; i < config.orgaos.length; i++) {
-      const orgao = config.orgaos[i].trim();
+    // 🚀 OTIMIZAÇÃO: Verificação em lote de OJs já cadastrados com cache
+    console.log('\n🔍 Verificando quais órgãos já estão cadastrados...');
+    const ojsJaCadastrados = new Set<string>();
+    const orgaosValidos = config.orgaos.filter(o => o && o.trim());
+    const cacheVerificacao = new Map<string, boolean>();
+    
+    // Verificar todos os OJs de uma vez para acelerar o processo
+    for (const orgao of orgaosValidos) {
+      const orgaoTrimmed = orgao.trim();
       
-      if (!orgao) {
-        console.log(`⏭️ Pulando órgão vazio na posição ${i + 1}`);
-        results.push({ orgao: `Posição ${i + 1}`, status: 'Pulado' });
-        continue;
-      }
-      
-      console.log(`\n🏛️ Processando (${i + 1}/${config.orgaos.length}): ${orgao}`);
-      
-      try {
-        // Verificar se o OJ já está incluído no perfil
-        const jaIncluido = await ojAlreadyAssigned(page, orgao);
-        
-        if (jaIncluido) {
-          console.log(`⏭️ ${orgao} já está incluído no perfil. Pulando para o próximo...`);
+      // 🚀 CACHE: Evita verificações duplicadas
+      if (cacheVerificacao.has(orgaoTrimmed)) {
+        if (cacheVerificacao.get(orgaoTrimmed)) {
+          ojsJaCadastrados.add(orgaoTrimmed);
+          console.log(`✓ ${orgaoTrimmed} - já cadastrado (cache)`);
           results.push({ 
-            orgao, 
+            orgao: orgaoTrimmed, 
             status: 'Já Incluído', 
             erro: 'Órgão Julgador já estava incluído no perfil do servidor' 
           });
-          continue;
         }
+        continue;
+      }
+      
+      const jaIncluido = await ojAlreadyAssigned(page, orgaoTrimmed);
+      cacheVerificacao.set(orgaoTrimmed, jaIncluido);
+      
+      if (jaIncluido) {
+        ojsJaCadastrados.add(orgaoTrimmed);
+        console.log(`✓ ${orgaoTrimmed} - já cadastrado`);
+        results.push({ 
+          orgao: orgaoTrimmed, 
+          status: 'Já Incluído', 
+          erro: 'Órgão Julgador já estava incluído no perfil do servidor' 
+        });
+      }
+    }
+    
+    // Filtrar apenas os OJs que precisam ser processados
+    const ojsParaProcessar = orgaosValidos.filter(o => !ojsJaCadastrados.has(o.trim()));
+    
+    console.log(`\n📊 ANÁLISE INICIAL:`);
+    console.log(`🔄 Já cadastrados: ${ojsJaCadastrados.size}`);
+    console.log(`⚡ Para processar: ${ojsParaProcessar.length}`);
+    console.log(`📋 Total: ${orgaosValidos.length}`);
+    
+    if (ojsParaProcessar.length === 0) {
+      console.log('\n🎉 Todos os órgãos já estão cadastrados! Nada a fazer.');
+    } else {
+      console.log(`\n🚀 Processando ${ojsParaProcessar.length} órgãos restantes...`);
+    }
+    
+    // Processar apenas os OJs que não estão cadastrados
+    for (let i = 0; i < ojsParaProcessar.length; i++) {
+      // Verificar se a automação foi pausada ou parada
+      await controller.waitIfPaused();
+      
+      if (controller.shouldStop()) {
+        console.log('\n🛑 Automação interrompida pelo usuário');
+        break;
+      }
+      
+      const orgao = ojsParaProcessar[i].trim();
+      
+      console.log(`\n🏛️ Processando (${i + 1}/${ojsParaProcessar.length}): ${orgao}`);
+      
+      try {
+        // 🛡️ PROTEÇÃO: Aguardar estabilização da página antes de processar
+        await page.waitForTimeout(1000);
+        
+        // 🛡️ PROTEÇÃO: Fechar possíveis modais/alertas de erro anteriores
+         try {
+           const alertButtons = [
+             page.locator('button:has-text("OK")'),
+             page.locator('button:has-text("Fechar")'),
+             page.locator('button:has-text("Cancelar")'),
+             page.locator('.mat-dialog-actions button'),
+             page.locator('[mat-dialog-close]')
+           ];
+          
+          for (const alertBtn of alertButtons) {
+            if (await alertBtn.count() > 0) {
+              console.log('🔄 Fechando modal/alerta anterior...');
+              await alertBtn.first().click();
+              await page.waitForTimeout(500);
+              break;
+            }
+          }
+        } catch (alertError) {
+          // Ignorar erros ao tentar fechar alertas
+        }
+        
+        // 🛡️ PROTEÇÃO: Pressionar ESC para garantir que não há modais abertos
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
         
         // Clicar em Adicionar Localização
         await clickAddLocalizacao(page);
@@ -187,9 +291,36 @@ async function main() {
           await selectOrgaoJulgador(page, orgao, config.perfil);
           console.log(`✅ Sucesso: ${orgao}`);
           results.push({ orgao, status: 'Sucesso' });
+          
+          // 🛡️ PROTEÇÃO: Aguardar processamento após sucesso
+          await page.waitForTimeout(1500);
+          
         } catch (selectError) {
           console.log(`❌ Erro ao selecionar órgão ${orgao}:`, selectError);
           results.push({ orgao, status: 'Erro', erro: 'Órgão não encontrado ou erro na seleção' });
+          
+          // 🛡️ PROTEÇÃO: Tempo extra após erro para estabilizar
+          await page.waitForTimeout(2000);
+          
+          // 🛡️ PROTEÇÃO: Tentar fechar qualquer modal de erro
+           try {
+             const errorModals = [
+               page.locator('button:has-text("OK")'),
+               page.locator('button:has-text("Fechar")'),
+               page.locator('.mat-dialog-actions button')
+             ];
+            
+            for (const modal of errorModals) {
+              if (await modal.count() > 0) {
+                console.log('🔄 Fechando modal de erro...');
+                await modal.first().click();
+                await page.waitForTimeout(1000);
+                break;
+              }
+            }
+          } catch (modalError) {
+            console.log('⚠️ Não foi possível fechar modal de erro automaticamente');
+          }
         }
         
       } catch (error) {
@@ -199,40 +330,119 @@ async function main() {
           status: 'Erro', 
           erro: error instanceof Error ? error.message : 'Erro desconhecido' 
         });
+        
+        // 🛡️ PROTEÇÃO: Tempo de recuperação após erro crítico
+        await page.waitForTimeout(3000);
+        
+        // 🛡️ PROTEÇÃO: Tentar voltar ao estado inicial
+        try {
+          await page.keyboard.press('Escape');
+          await page.keyboard.press('Escape');
+          await page.waitForTimeout(1000);
+        } catch (recoveryError) {
+          console.log('⚠️ Erro na recuperação automática');
+        }
       }
       
-      // Aguardar um pouco entre processamentos
-      await page.waitForTimeout(1000);
+      // 🛡️ PROTEÇÃO: Aguardar estabilização antes do próximo OJ
+      if (i < ojsParaProcessar.length - 1) {
+        console.log(`⏳ Aguardando estabilização antes do próximo OJ...`);
+        await page.waitForTimeout(1500);
+      }
+    }
+    
+    // Adicionar órgãos vazios ao relatório
+    for (let i = 0; i < config.orgaos.length; i++) {
+      const orgao = config.orgaos[i];
+      if (!orgao || !orgao.trim()) {
+        console.log(`⏭️ Pulando órgão vazio na posição ${i + 1}`);
+        results.push({ orgao: `Posição ${i + 1}`, status: 'Pulado' });
+      }
     }
     
     // Gerar relatório
     await generateReport(results, config);
     
-    // Resumo final
+    // Resumo final detalhado
     const sucessos = results.filter(r => r.status === 'Sucesso').length;
     const erros = results.filter(r => r.status === 'Erro').length;
     const pulados = results.filter(r => r.status === 'Pulado').length;
     const jaIncluidos = results.filter(r => r.status === 'Já Incluído').length;
     
-    console.log('\n📊 RESUMO FINAL:');
-    console.log(`✅ Sucessos: ${sucessos}`);
-    console.log(`❌ Erros: ${erros}`);
-    console.log(`⏭️ Pulados: ${pulados}`);
-    console.log(`🔄 Já Incluídos: ${jaIncluidos}`);
-    console.log(`📋 Total: ${results.length}`);
+    console.log('\n🎯 ========================================');
+    console.log('📊 RELATÓRIO FINAL DE CADASTRO DE ÓRGÃOS');
+    console.log('🎯 ========================================');
+    console.log(`\n📋 TOTAL DE ÓRGÃOS PROCESSADOS: ${results.length}`);
+    console.log('\n📈 RESULTADOS DETALHADOS:');
+    console.log(`✅ NOVOS CADASTROS REALIZADOS: ${sucessos}`);
+    console.log(`🔄 JÁ EXISTIAM NO SISTEMA: ${jaIncluidos}`);
+    console.log(`❌ ERROS ENCONTRADOS: ${erros}`);
+    console.log(`⏭️ ÓRGÃOS PULADOS (vazios): ${pulados}`);
+    
+    // Calcular percentuais
+    const totalValidos = sucessos + jaIncluidos + erros;
+    if (totalValidos > 0) {
+      const percentualSucesso = ((sucessos / totalValidos) * 100).toFixed(1);
+      const percentualJaExistiam = ((jaIncluidos / totalValidos) * 100).toFixed(1);
+      const percentualErros = ((erros / totalValidos) * 100).toFixed(1);
+      
+      console.log('\n📊 ESTATÍSTICAS:');
+      console.log(`🎯 Taxa de sucesso: ${percentualSucesso}% (${sucessos}/${totalValidos})`);
+      console.log(`📋 Já cadastrados: ${percentualJaExistiam}% (${jaIncluidos}/${totalValidos})`);
+      console.log(`⚠️ Taxa de erro: ${percentualErros}% (${erros}/${totalValidos})`);
+    }
+    
+    // Mostrar órgãos com erro para facilitar correção
+    if (erros > 0) {
+      console.log('\n❌ ÓRGÃOS COM ERRO:');
+      results.filter(r => r.status === 'Erro').forEach((result, index) => {
+        console.log(`   ${index + 1}. ${result.orgao} - ${result.erro || 'Erro não especificado'}`);
+      });
+    }
+    
+    // Mostrar órgãos cadastrados com sucesso
+    if (sucessos > 0) {
+      console.log('\n✅ ÓRGÃOS CADASTRADOS COM SUCESSO:');
+      results.filter(r => r.status === 'Sucesso').forEach((result, index) => {
+        console.log(`   ${index + 1}. ${result.orgao}`);
+      });
+    }
+    
+    // Mostrar órgãos que já existiam
+    if (jaIncluidos > 0) {
+      console.log('\n🔄 ÓRGÃOS QUE JÁ EXISTIAM:');
+      results.filter(r => r.status === 'Já Incluído').forEach((result, index) => {
+        console.log(`   ${index + 1}. ${result.orgao}`);
+      });
+    }
+    
+    console.log('\n🎯 ========================================');
+    console.log('🏁 PROCESSO DE CADASTRO FINALIZADO!');
+    console.log('🎯 ========================================\n');
     
   } catch (error) {
     console.error('❌ Erro na automação:', error);
     process.exit(1);
   } finally {
-    // Fechar o browser ao final da automação
-    if (browser) {
+    // Limpar arquivo de controle
+    controller.cleanup();
+    
+    // Fechar o browser apenas se estivermos em modo headless (produção)
+    if (browser && isProduction) {
       console.log('🔒 Fechando browser...');
       try {
         await browser.close();
         console.log('✅ Browser fechado com sucesso');
       } catch (closeError) {
         console.log('⚠️ Erro ao fechar browser:', closeError);
+      }
+    } else if (page && !isProduction) {
+      console.log('🔒 Fechando página da automação...');
+      try {
+        await page.close();
+        console.log('✅ Página fechada com sucesso');
+      } catch (closeError) {
+        console.log('⚠️ Erro ao fechar página:', closeError);
       }
     }
     console.log('🏁 Automação finalizada');
@@ -325,8 +535,13 @@ async function searchByCPF(page: Page, cpf: string) {
 }
 
 async function generateReport(results: ProcessResult[], config: ConfigData) {
-  // Usar /tmp para compatibilidade com Vercel
-  const outputDir = '/tmp';
+  // Configurar diretório de saída para relatórios
+  const outputDir = path.join(__dirname, '..', 'data');
+  
+  // Criar diretório se não existir
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
   
   // Gerar CSV
   const csvContent = [
@@ -336,6 +551,13 @@ async function generateReport(results: ProcessResult[], config: ConfigData) {
   
   const csvPath = path.join(outputDir, 'relatorio.csv');
   fs.writeFileSync(csvPath, csvContent);
+  
+  // Calcular estatísticas detalhadas
+  const sucessos = results.filter(r => r.status === 'Sucesso').length;
+  const erros = results.filter(r => r.status === 'Erro').length;
+  const pulados = results.filter(r => r.status === 'Pulado').length;
+  const jaIncluidos = results.filter(r => r.status === 'Já Incluído').length;
+  const totalValidos = sucessos + jaIncluidos + erros;
   
   // Gerar JSON detalhado
   const jsonReport = {
@@ -347,9 +569,26 @@ async function generateReport(results: ProcessResult[], config: ConfigData) {
     },
     results,
     summary: {
-      sucessos: results.filter(r => r.status === 'Sucesso').length,
-      erros: results.filter(r => r.status === 'Erro').length,
-      pulados: results.filter(r => r.status === 'Pulado').length
+      total: results.length,
+      sucessos,
+      erros,
+      pulados,
+      jaIncluidos,
+      totalValidos,
+      estatisticas: totalValidos > 0 ? {
+        percentualSucesso: parseFloat(((sucessos / totalValidos) * 100).toFixed(1)),
+        percentualJaExistiam: parseFloat(((jaIncluidos / totalValidos) * 100).toFixed(1)),
+        percentualErros: parseFloat(((erros / totalValidos) * 100).toFixed(1))
+      } : null
+    },
+    detalhes: {
+      orgaosCadastrados: results.filter(r => r.status === 'Sucesso').map(r => r.orgao),
+      orgaosJaExistiam: results.filter(r => r.status === 'Já Incluído').map(r => r.orgao),
+      orgaosComErro: results.filter(r => r.status === 'Erro').map(r => ({
+        orgao: r.orgao,
+        erro: r.erro || 'Erro não especificado'
+      })),
+      orgaosPulados: results.filter(r => r.status === 'Pulado').map(r => r.orgao)
     }
   };
   

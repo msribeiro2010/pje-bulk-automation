@@ -1,0 +1,75 @@
+{
+  "timestamp": "2025-08-01T12:17:19.028Z",
+  "config": {
+    "cpf": "344.632.198-50",
+    "perfil": "Servidor",
+    "totalOrgaos": 9
+  },
+  "results": [
+    {
+      "orgao": "2ª Vara Do Trabalho De Sorocaba",
+      "status": "Sucesso"
+    },
+    {
+      "orgao": "3ª Vara Do Trabalho De Sorocaba",
+      "status": "Sucesso"
+    },
+    {
+      "orgao": "4ª Vara Do Trabalho De Sorocaba",
+      "status": "Sucesso"
+    },
+    {
+      "orgao": "Vara Do Trabalho De Tietê",
+      "status": "Sucesso"
+    },
+    {
+      "orgao": "EXE1 - Sorocaba",
+      "status": "Sucesso"
+    },
+    {
+      "orgao": "EXE2 - Sorocaba",
+      "status": "Sucesso"
+    },
+    {
+      "orgao": "EXE3 - Sorocaba",
+      "status": "Sucesso"
+    },
+    {
+      "orgao": "EXE4 - Sorocaba",
+      "status": "Sucesso"
+    },
+    {
+      "orgao": "DAM - Sorocaba",
+      "status": "Sucesso"
+    }
+  ],
+  "summary": {
+    "total": 9,
+    "sucessos": 9,
+    "erros": 0,
+    "pulados": 0,
+    "jaIncluidos": 0,
+    "totalValidos": 9,
+    "estatisticas": {
+      "percentualSucesso": 100,
+      "percentualJaExistiam": 0,
+      "percentualErros": 0
+    }
+  },
+  "detalhes": {
+    "orgaosCadastrados": [
+      "2ª Vara Do Trabalho De Sorocaba",
+      "3ª Vara Do Trabalho De Sorocaba",
+      "4ª Vara Do Trabalho De Sorocaba",
+      "Vara Do Trabalho De Tietê",
+      "EXE1 - Sorocaba",
+      "EXE2 - Sorocaba",
+      "EXE3 - Sorocaba",
+      "EXE4 - Sorocaba",
+      "DAM - Sorocaba"
+    ],
+    "orgaosJaExistiam": [],
+    "orgaosComErro": [],
+    "orgaosPulados": []
+  }
+}

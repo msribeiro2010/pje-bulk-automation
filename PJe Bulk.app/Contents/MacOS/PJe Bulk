@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Executável principal do PJe Bulk App
+# Este script é chamado quando o usuário clica no ícone do aplicativo
+
+# Caminho fixo para o projeto
+PROJECT_DIR="/Users/marceloribeiro/Desktop/MESA-ICLOUD/PROJETOS_EM_ANDAMENTO/pje-bulk-kz"
+
+# Navegar para o diretório do projeto
+cd "$PROJECT_DIR"
+
+# Executar o script de inicialização
+exec "$PROJECT_DIR/start-pje-bulk.sh"
