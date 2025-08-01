@@ -420,8 +420,45 @@ async function main() {
     console.log('🏁 PROCESSO DE CADASTRO FINALIZADO!');
     console.log('🎯 ========================================\n');
     
+    // Retornar dados estruturados para o frontend
+    const finalResult = {
+      total: results.length,
+      sucessos: results.filter(r => r.status === 'Sucesso').map(r => r.orgao),
+      erros: results.filter(r => r.status === 'Erro').map(r => ({
+        orgao: r.orgao,
+        erro: r.erro || 'Erro não especificado'
+      })),
+      jaIncluidos: results.filter(r => r.status === 'Já Incluído').map(r => r.orgao),
+      pulados: results.filter(r => r.status === 'Pulado').length,
+      estatisticas: {
+        percentualSucesso: totalValidos > 0 ? parseFloat(((sucessos / totalValidos) * 100).toFixed(1)) : 0,
+        percentualJaExistiam: totalValidos > 0 ? parseFloat(((jaIncluidos / totalValidos) * 100).toFixed(1)) : 0,
+        percentualErros: totalValidos > 0 ? parseFloat(((erros / totalValidos) * 100).toFixed(1)) : 0
+      }
+    };
+    
+    // Imprimir resultado final em JSON para o servidor capturar
+    console.log('\n=== RESULTADO_FINAL_JSON ===');
+    console.log(JSON.stringify(finalResult));
+    console.log('=== FIM_RESULTADO_FINAL_JSON ===\n');
+    
   } catch (error) {
     console.error('❌ Erro na automação:', error);
+    
+    // Retornar erro estruturado
+    const errorResult = {
+      total: 0,
+      sucessos: [],
+      erros: [{ orgao: 'Erro geral', erro: error instanceof Error ? error.message : 'Erro desconhecido' }],
+      jaIncluidos: [],
+      pulados: 0,
+      estatisticas: { percentualSucesso: 0, percentualJaExistiam: 0, percentualErros: 100 }
+    };
+    
+    console.log('\n=== RESULTADO_FINAL_JSON ===');
+    console.log(JSON.stringify(errorResult));
+    console.log('=== FIM_RESULTADO_FINAL_JSON ===\n');
+    
     process.exit(1);
   } finally {
     // Limpar arquivo de controle

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PJE Bulk KZ - Interface</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -130,17 +133,26 @@
         
         input, textarea, select {
             width: 100%;
-            padding: 12px 15px;
+            padding: 15px 18px;
             border: 2px solid #e1e5e9;
-            border-radius: 8px;
+            border-radius: 12px;
             font-size: 1em;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
         }
         
         input:focus, textarea:focus, select:focus {
             outline: none;
-            border-color: #4facfe;
-            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1), 0 8px 25px rgba(102, 126, 234, 0.15);
+            background: rgba(255, 255, 255, 0.95);
+            transform: translateY(-2px);
+        }
+        
+        input:hover, textarea:hover, select:hover {
+            border-color: #b8c5f2;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
         }
         
         textarea {
@@ -152,24 +164,51 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 15px 30px;
-            border-radius: 8px;
+            padding: 18px 35px;
+            border-radius: 12px;
             font-size: 1.1em;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             width: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn:hover::before {
+            left: 100%;
         }
         
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
         }
         
         .btn:disabled {
             opacity: 0.6;
             cursor: not-allowed;
             transform: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .btn:disabled::before {
+            display: none;
         }
         
         .results {
@@ -209,8 +248,153 @@
         
         .loading {
             text-align: center;
-            padding: 20px;
+            padding: 40px 20px;
             display: none;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e6f3ff 100%);
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 2px solid rgba(102, 126, 234, 0.1);
+        }
+        
+        .robot-animation {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+            position: relative;
+            animation: robotFloat 3s ease-in-out infinite;
+        }
+        
+        .robot-body {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+        
+        .robot-head {
+            width: 60px;
+            height: 50px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 15px 15px 25px 25px;
+            position: absolute;
+            top: 0;
+            left: 30px;
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.3);
+        }
+        
+        .robot-eyes {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 30px;
+            height: 8px;
+        }
+        
+        .robot-eye {
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+            position: absolute;
+            animation: robotBlink 2s infinite;
+        }
+        
+        .robot-eye:first-child {
+            left: 0;
+        }
+        
+        .robot-eye:last-child {
+            right: 0;
+        }
+        
+        .robot-arms {
+            position: absolute;
+            top: 35px;
+        }
+        
+        .robot-arm {
+            width: 15px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 8px;
+            position: absolute;
+            animation: robotWave 1.5s ease-in-out infinite alternate;
+        }
+        
+        .robot-arm.left {
+            left: 0;
+            transform-origin: top center;
+        }
+        
+        .robot-arm.right {
+            right: 0;
+            transform-origin: top center;
+            animation-delay: 0.3s;
+        }
+        
+        .processing-text {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 10px;
+            animation: textPulse 2s ease-in-out infinite;
+        }
+        
+        .processing-subtitle {
+            font-size: 1em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        
+        .progress-dots {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .progress-dot {
+            width: 12px;
+            height: 12px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: dotPulse 1.5s ease-in-out infinite;
+        }
+        
+        .progress-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .progress-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes robotFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        @keyframes robotBlink {
+            0%, 90%, 100% { opacity: 1; }
+            95% { opacity: 0; }
+        }
+        
+        @keyframes robotWave {
+            0% { transform: rotate(-10deg); }
+            100% { transform: rotate(10deg); }
+        }
+        
+        @keyframes textPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        @keyframes dotPulse {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.2); opacity: 1; }
         }
         
         .spinner {
@@ -226,6 +410,28 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
         }
         
         .help-text {
@@ -449,25 +655,48 @@
         /* Estilos para controle da automação */
         .automation-control {
             margin-top: 30px;
-            padding: 25px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            border: 2px solid #e9ecef;
+            padding: 30px;
+            background: linear-gradient(135deg, #f8f9ff 0%, #e6f3ff 100%);
+            border-radius: 20px;
+            border: 2px solid rgba(102, 126, 234, 0.1);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .automation-control::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            animation: float 30s linear infinite;
         }
         
         .automation-control h3 {
-            color: #333;
-            margin-bottom: 20px;
+            color: #667eea;
+            margin-bottom: 25px;
             text-align: center;
+            font-weight: 700;
+            font-size: 1.4em;
+            position: relative;
+            z-index: 1;
         }
         
         .automation-status {
             text-align: center;
-            margin-bottom: 20px;
-            padding: 15px;
-            background: white;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.1);
+            position: relative;
+            z-index: 1;
         }
         
         .automation-status .status-idle {
@@ -507,26 +736,86 @@
         .btn-warning {
             background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
             color: #212529;
+            box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-warning::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-warning:hover::before {
+            left: 100%;
         }
         
         .btn-warning:hover {
             background: linear-gradient(135deg, #e0a800 0%, #d39e00 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(255, 193, 7, 0.4);
         }
         
         .btn-success {
             background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-success::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-success:hover::before {
+            left: 100%;
         }
         
         .btn-success:hover {
             background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(40, 167, 69, 0.4);
         }
         
         .btn-danger {
             background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-danger::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn-danger:hover::before {
+            left: 100%;
         }
         
         .btn-danger:hover {
             background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 15px 35px rgba(220, 53, 69, 0.4);
         }
         
         @media (max-width: 600px) {
@@ -543,7 +832,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🏛️ PJE Bulk KZ</h1>
+            <h1>PJE Bulk KZ</h1>
             <p>Automação para inclusão de perfis em órgãos julgadores</p>
         </div>
         
@@ -559,7 +848,7 @@
             <form id="automationForm">
                 <div class="form-group">
                     <label for="pjeUrl">URL do PJE:</label>
-                    <input type="url" id="pjeUrl" name="pjeUrl" placeholder="https://pje.trt15.jus.br/pjekz/pessoa-fisica?pagina=1&tamanhoPagina=10&cpf=&situacao=1" required>
+                    <input type="url" id="pjeUrl" name="pjeUrl" value="https://pje.trt15.jus.br/pjekz/pessoa-fisica" placeholder="https://pje.trt15.jus.br/pjekz/pessoa-fisica" required>
                     <div class="help-text">URL completa da página de pessoa física do PJE (deixe o CPF vazio na URL)</div>
                 </div>
                 
@@ -648,8 +937,26 @@
             </form>
             
             <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Processando automação... Isso pode levar alguns minutos.</p>
+                <div class="robot-animation">
+                    <div class="robot-head">
+                        <div class="robot-eyes">
+                            <div class="robot-eye"></div>
+                            <div class="robot-eye"></div>
+                        </div>
+                    </div>
+                    <div class="robot-body"></div>
+                    <div class="robot-arms">
+                        <div class="robot-arm left"></div>
+                        <div class="robot-arm right"></div>
+                    </div>
+                </div>
+                <div class="processing-text">🤖 Robô trabalhando...</div>
+                <div class="processing-subtitle">Processando automação, isso pode levar alguns minutos</div>
+                <div class="progress-dots">
+                    <div class="progress-dot"></div>
+                    <div class="progress-dot"></div>
+                    <div class="progress-dot"></div>
+                </div>
             </div>
             
             <div class="results" id="results">
@@ -889,6 +1196,8 @@
         }
         
         function displayResults(result) {
+            console.log('🎯 Exibindo resultados da automação:', result);
+            
             const successList = document.getElementById('successList');
             const errorList = document.getElementById('errorList');
             const existingList = document.getElementById('existingList');
@@ -906,6 +1215,14 @@
             const totalExisting = result.jaIncluidos ? result.jaIncluidos.length : 0;
             const totalPulados = result.pulados || 0;
             const totalProcessed = totalSuccess + totalErrors + totalExisting + totalPulados;
+            
+            console.log('📊 Estatísticas calculadas:', {
+                totalSuccess,
+                totalErrors, 
+                totalExisting,
+                totalPulados,
+                totalProcessed
+            });
             
             // Atualizar painel de estatísticas resumidas
             document.getElementById('totalProcessed').textContent = totalProcessed;
@@ -1006,11 +1323,66 @@
             
             stats.innerHTML = statsHTML;
             
+            // Esconder spinner de carregamento
+            document.getElementById('loading').style.display = 'none';
+            
             // Mostrar resultados
             document.getElementById('results').style.display = 'block';
             
+            // Notificação visual de conclusão
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+                color: white;
+                padding: 15px 20px;
+                border-radius: 10px;
+                box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+                z-index: 10000;
+                font-weight: bold;
+                animation: slideIn 0.5s ease-out;
+            `;
+            notification.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px;">🎉</span>
+                    <div>
+                        <div>Automação Concluída!</div>
+                        <div style="font-size: 12px; opacity: 0.9;">${totalProcessed} órgãos processados</div>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Remover notificação após 5 segundos
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.style.animation = 'slideOut 0.5s ease-in';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.parentNode.removeChild(notification);
+                        }
+                    }, 500);
+                }
+            }, 5000);
+            
             // Scroll suave para os resultados
             document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+            
+            // Parar qualquer polling de status que possa estar rodando
+            if (automationStatusInterval) {
+                clearInterval(automationStatusInterval);
+                automationStatusInterval = null;
+            }
+            
+            // Atualizar status da automação para idle
+            const statusElement = document.getElementById('automation-status');
+            if (statusElement) {
+                statusElement.textContent = 'Automação concluída';
+                statusElement.style.color = '#28a745';
+            }
         }
         
         // Aplicar máscara de CPF

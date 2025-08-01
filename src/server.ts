@@ -51,8 +51,14 @@ if (!fs.existsSync(uploadsDir)) {
 interface AutomationResult {
   total: number;
   sucessos: string[];
-  erros: string[];
+  erros: Array<string | { orgao: string; erro: string }>;
+  jaIncluidos?: string[];
   pulados: number;
+  estatisticas?: {
+    percentualSucesso: number;
+    percentualJaExistiam: number;
+    percentualErros: number;
+  };
 }
 
 // Rota principal - serve a interface
@@ -410,23 +416,49 @@ function runAutomation(configFile: string): Promise<AutomationResult> {
     });
     
     child.on('close', (code) => {
-      if (code === 0) {
-        try {
-          // Tentar ler o relatório gerado
-          const reportPath = path.join(__dirname, '../data/outputs/relatorio.csv');
-          if (fs.existsSync(reportPath)) {
-            const result = parseReport(reportPath);
+      try {
+        // Tentar extrair resultado JSON estruturado do output
+        const jsonMatch = output.match(/=== RESULTADO_FINAL_JSON ===\n([\s\S]*?)\n=== FIM_RESULTADO_FINAL_JSON ===/); 
+        
+        if (jsonMatch && jsonMatch[1]) {
+          try {
+            const result = JSON.parse(jsonMatch[1].trim());
+            console.log('✅ Resultado estruturado capturado:', result);
             resolve(result);
-          } else {
-            // Fallback: analisar output
-            const result = parseOutput(output);
-            resolve(result);
+            return;
+          } catch (parseError) {
+            console.log('⚠️ Erro ao fazer parse do JSON estruturado:', parseError);
           }
-        } catch (error) {
-          reject(new Error('Erro ao processar resultados: ' + error));
         }
-      } else {
-        reject(new Error(`Automação falhou com código ${code}: ${errorOutput}`));
+        
+        // Fallback: tentar ler o relatório gerado
+        const reportPath = path.join(__dirname, '../data/relatorio.json');
+        if (fs.existsSync(reportPath)) {
+          const reportContent = fs.readFileSync(reportPath, 'utf-8');
+          const reportData = JSON.parse(reportContent);
+          
+          const result = {
+            total: reportData.summary.total,
+            sucessos: reportData.detalhes.orgaosCadastrados || [],
+            erros: reportData.detalhes.orgaosComErro || [],
+            jaIncluidos: reportData.detalhes.orgaosJaExistiam || [],
+            pulados: reportData.summary.pulados || 0,
+            estatisticas: reportData.summary.estatisticas
+          };
+          
+          console.log('✅ Resultado do relatório JSON capturado:', result);
+          resolve(result);
+          return;
+        }
+        
+        // Fallback final: analisar output de texto
+        const result = parseOutput(output);
+        console.log('✅ Resultado do output de texto capturado:', result);
+        resolve(result);
+        
+      } catch (error) {
+        console.error('❌ Erro ao processar resultados:', error);
+        reject(new Error('Erro ao processar resultados: ' + error));
       }
     });
     
