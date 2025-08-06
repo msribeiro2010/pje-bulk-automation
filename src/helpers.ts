@@ -274,8 +274,9 @@ export function normalizeOrgaoName(orgaoName: string): string {
     return match.charAt(0) + match.slice(1).toLowerCase();
   });
   
-  // Padronizar preposições - garantir que tenha 'de' após 'Vara do Trabalho'
-  normalized = normalized.replace(/(\d+[ªº°]?\s+)?Vara do Trabalho\s+([A-ZÁÊÍÓÚÇÃÕ])/gi, '$1Vara do Trabalho de $2');
+  // 🔧 CORREÇÃO: Padronizar preposições - garantir que tenha 'de' após 'Vara do Trabalho' APENAS se não existir
+  // Evitar criar "de de" verificando se já existe "de" na posição
+  normalized = normalized.replace(/(\d+[ªº°]?\s+)?Vara do Trabalho\s+(?!de\s+)([A-ZÁÊÍÓÚÇÃÕ])/gi, '$1Vara do Trabalho de $2');
   
   // Corrigir espaçamentos múltiplos
   normalized = normalized.replace(/\s+/g, ' ').trim();
@@ -288,24 +289,52 @@ export function normalizeOrgaoName(orgaoName: string): string {
 
 /** Expande abreviações comuns de órgãos julgadores e gera variações de maiúsculas/minúsculas */
 function expandAbbreviations(orgaoName: string): string[] {
+  const prioritizedVariations: string[] = [];
   const variations = new Set<string>();
   
-  // Primeiro, normalizar o nome
-  const normalizedName = normalizeOrgaoName(orgaoName);
+  // 🔧 CORREÇÃO: Primeiro, limpar e normalizar o nome de entrada
+  const cleanedName = orgaoName.trim().replace(/\s+/g, ' ');
+  const normalizedName = normalizeOrgaoName(cleanedName);
   
-  // Adiciona o nome normalizado e suas variações de case
+  // 🎯 PRIORIDADE 1: Nome normalizado exato (maior prioridade - mais confiável)
+  prioritizedVariations.push(normalizedName);
   variations.add(normalizedName);
-  variations.add(normalizedName.toLowerCase());
-  variations.add(normalizedName.toUpperCase());
-  variations.add(toTitleCase(normalizedName));
   
-  // Também adiciona o nome original e suas variações
-  variations.add(orgaoName);
-  variations.add(orgaoName.toLowerCase());
-  variations.add(orgaoName.toUpperCase());
-  variations.add(toTitleCase(orgaoName));
+  // 🎯 PRIORIDADE 2: Nome original exato
+  if (cleanedName !== normalizedName) {
+    prioritizedVariations.push(cleanedName);
+    variations.add(cleanedName);
+  }
   
-  // Expandir abreviações comuns
+  // 🎯 PRIORIDADE 3: Variações de case do nome original
+  const originalCaseVariations = [
+    toTitleCase(cleanedName),
+    cleanedName.toLowerCase(),
+    cleanedName.toUpperCase()
+  ];
+  
+  for (const variation of originalCaseVariations) {
+    if (!variations.has(variation)) {
+      prioritizedVariations.push(variation);
+      variations.add(variation);
+    }
+  }
+  
+  // 🎯 PRIORIDADE 4: Variações de case do nome normalizado
+  const normalizedCaseVariations = [
+    toTitleCase(normalizedName),
+    normalizedName.toLowerCase(),
+    normalizedName.toUpperCase()
+  ];
+  
+  for (const variation of normalizedCaseVariations) {
+    if (!variations.has(variation)) {
+      prioritizedVariations.push(variation);
+      variations.add(variation);
+    }
+  }
+  
+  // 🔧 CORREÇÃO: Expandir abreviações de forma mais controlada
   const abbreviations = {
     'VT': 'Vara do Trabalho',
     'VCT': 'Vara Cível do Trabalho', 
@@ -313,68 +342,117 @@ function expandAbbreviations(orgaoName: string): string[] {
     'TRT': 'Tribunal Regional do Trabalho'
   };
   
-  // Expandir abreviações para ambos os nomes (original e normalizado)
-  const namesToProcess = [orgaoName, normalizedName];
+  const namesToProcess = [cleanedName, normalizedName];
   
   for (const nameToProcess of namesToProcess) {
     for (const [abbrev, full] of Object.entries(abbreviations)) {
-      const abbrevVariations = [abbrev, abbrev.toLowerCase(), abbrev.toUpperCase()];
+      const abbrevRegex = new RegExp(`\\b${abbrev}\\b`, 'gi');
       
-      for (const abbrevVar of abbrevVariations) {
-        if (nameToProcess.includes(abbrevVar)) {
-          const expanded = nameToProcess.replace(new RegExp(abbrevVar, 'g'), full);
+      if (abbrevRegex.test(nameToProcess)) {
+        const expanded = nameToProcess.replace(abbrevRegex, full);
+        
+        // 🔧 CORREÇÃO: Limpar espaços duplos que podem ser criados
+        const cleanExpanded = expanded.replace(/\s+/g, ' ').trim();
+        
+        if (!variations.has(cleanExpanded)) {
+          prioritizedVariations.push(cleanExpanded);
+          variations.add(cleanExpanded);
           
-          // Adicionar variações do nome expandido
-          variations.add(expanded);
-          variations.add(expanded.toLowerCase());
-          variations.add(expanded.toUpperCase());
-          variations.add(toTitleCase(expanded));
+          // Adicionar variações de case do nome expandido
+          const expandedCaseVariations = [
+            toTitleCase(cleanExpanded),
+            cleanExpanded.toLowerCase(),
+            cleanExpanded.toUpperCase()
+          ];
+          
+          for (const caseVar of expandedCaseVariations) {
+            if (!variations.has(caseVar)) {
+              prioritizedVariations.push(caseVar);
+              variations.add(caseVar);
+            }
+          }
         }
       }
     }
   }
   
-  // Variações específicas para nomes de cidades em maiúscula
-  const allVariations = Array.from(variations);
-  for (const variation of allVariations) {
-    if (/\b[A-Z]{2,}\b/.test(variation)) {
-      // Se tem palavras em maiúscula, criar versão com apenas primeira letra maiúscula
-      const titleCaseVersion = variation.replace(/\b[A-Z]{2,}\b/g, (match) => 
-        match.charAt(0) + match.slice(1).toLowerCase()
-      );
-      variations.add(titleCaseVersion);
+  // 🔧 CORREÇÃO: Variações com preposições de forma mais controlada
+  const currentVariations = [...prioritizedVariations];
+  
+  for (const variation of currentVariations) {
+    // 🔧 CORREÇÃO: Evitar criar "de de" ou outras duplicações
+    
+    // Adicionar "de" apenas se não existir e se fizer sentido
+    if (/(\d+[ªº°]?\s+)?Vara do Trabalho\s+([A-ZÁÊÍÓÚÇÃÕ][a-záêíóúçãõ]+)$/i.test(variation) && 
+        !variation.toLowerCase().includes(' de ')) {
+      const withDe = variation.replace(/(Vara do Trabalho)\s+([A-ZÁÊÍÓÚÇÃÕ])/i, '$1 de $2');
+      
+      if (!variations.has(withDe)) {
+        prioritizedVariations.push(withDe);
+        variations.add(withDe);
+        
+        // Variações de case
+        const withDeCaseVariations = [
+          toTitleCase(withDe),
+          withDe.toLowerCase(),
+          withDe.toUpperCase()
+        ];
+        
+        for (const caseVar of withDeCaseVariations) {
+          if (!variations.has(caseVar)) {
+            prioritizedVariations.push(caseVar);
+            variations.add(caseVar);
+          }
+        }
+      }
+    }
+    
+    // Remover "de" apenas se existir e criar uma variação válida
+    if (variation.toLowerCase().includes(' de ')) {
+      const withoutDe = variation.replace(/(Vara do Trabalho)\s+de\s+/i, '$1 ');
+      
+      if (withoutDe !== variation && !variations.has(withoutDe)) {
+        prioritizedVariations.push(withoutDe);
+        variations.add(withoutDe);
+        
+        // Variações de case
+        const withoutDeCaseVariations = [
+          toTitleCase(withoutDe),
+          withoutDe.toLowerCase(),
+          withoutDe.toUpperCase()
+        ];
+        
+        for (const caseVar of withoutDeCaseVariations) {
+          if (!variations.has(caseVar)) {
+            prioritizedVariations.push(caseVar);
+            variations.add(caseVar);
+          }
+        }
+      }
     }
   }
   
-  // Variações com/sem preposições "de", "da", "do"
-  const baseVariations = Array.from(variations);
-  for (const variation of baseVariations) {
-    // Adicionar "de" antes do nome da cidade
-    const withDe = variation.replace(/(Vara do Trabalho)\s+([A-ZÁÊÇÕ])/i, '$1 de $2');
-    if (withDe !== variation) {
-      variations.add(withDe);
-      variations.add(withDe.toLowerCase());
-      variations.add(withDe.toUpperCase());
-      variations.add(toTitleCase(withDe));
+  // 🔧 CORREÇÃO: Filtrar variações problemáticas e duplicadas
+  const finalVariations = prioritizedVariations.filter(variation => {
+    const cleaned = variation.trim().replace(/\s+/g, ' ');
+    
+    // Filtrar variações com problemas óbvios
+    if (cleaned.includes('  ') || // espaços duplos
+        cleaned.includes(' de de ') || // "de de"
+        cleaned.includes(' da da ') || // "da da"
+        cleaned.includes(' do do ') || // "do do"
+        cleaned.includes(' De De ') || // "De De" (maiúscula)
+        cleaned.includes(' Da Da ') || // "Da Da" (maiúscula)
+        cleaned.includes(' Do Do ') || // "Do Do" (maiúscula)
+        cleaned.length < 3) { // muito curto
+      return false;
     }
     
-    // Remover "de" se existir
-    const withoutDe = variation.replace(/(Vara do Trabalho)\s+de\s+/i, '$1 ');
-    if (withoutDe !== variation) {
-      variations.add(withoutDe);
-      variations.add(withoutDe.toLowerCase());
-      variations.add(withoutDe.toUpperCase());
-      variations.add(toTitleCase(withoutDe));
-    }
-    
-    // Variações com números ordinais
-    const withOrdinal = variation.replace(/(\d+)ª/g, '$1ª');
-    if (withOrdinal !== variation) {
-      variations.add(withOrdinal);
-    }
-  }
+    return true;
+  });
   
-  return Array.from(variations);
+  // 🎯 RESULTADO: Retornar variações ordenadas por prioridade (mais específicas primeiro)
+  return finalVariations;
 }
 
 /** Converte string para Title Case (Primeira Letra Maiúscula) */
@@ -388,7 +466,7 @@ function toTitleCase(str: string): string {
 export async function selectOrgaoJulgador(page: Page, ojName: string, perfil: string) {
   console.log(`🔍 Procurando campo de Órgão Julgador para: ${ojName}`);
   
-  // Gerar variações do nome do órgão
+  // Gerar variações do nome do órgão (ordenadas por prioridade)
   const nameVariations = expandAbbreviations(ojName);
   console.log(`📝 Variações a tentar: ${nameVariations.join(', ')}`);
   
@@ -422,40 +500,131 @@ export async function selectOrgaoJulgador(page: Page, ojName: string, perfil: st
       // Aguarda sugestão aparecer
       await page.waitForTimeout(1000);
       
-      // Múltiplas estratégias de busca para maior precisão
+      // 🔧 CORREÇÃO: Estratégias de busca priorizando matches exatos
       const searchStrategies = [
-        // Busca exata case-insensitive
+        // 1. Busca EXATA case-insensitive (PRIORIDADE MÁXIMA)
         page.getByRole('option', { name: new RegExp(`^${variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }),
-        // Busca contendo o texto
+        // 2. Busca por mat-option com texto EXATO
+        page.locator(`mat-option`).filter({ hasText: new RegExp(`^${variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }),
+        page.locator(`[role="option"]`).filter({ hasText: new RegExp(`^${variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }),
+        // 3. Busca contendo o texto (mas verificando se é match exato)
         page.getByRole('option', { name: new RegExp(variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }),
-        // Busca por mat-option com texto exato
+        // 4. Busca por mat-option com texto contendo
         page.locator(`mat-option:has-text("${variation}")`),
-        page.locator(`[role="option"]:has-text("${variation}")`),
-        // Busca flexível por partes do nome
-        page.locator('mat-option, [role="option"]').filter({ hasText: new RegExp(variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }),
-        // Busca por texto parcial (apenas cidade)
-        page.locator('mat-option, [role="option"]').filter({ hasText: new RegExp(variation.split(' ').pop() || '', 'i') })
+        page.locator(`[role="option"]:has-text("${variation}")`)
+        // 🚫 REMOVIDO: Busca por cidade apenas (causa o problema de seleção incorreta)
       ];
       
-      // Tentar cada estratégia de busca
-      for (let strategyIndex = 0; strategyIndex < searchStrategies.length; strategyIndex++) {
-        const strategy = searchStrategies[strategyIndex];
+      // 🎯 ESTRATÉGIA MELHORADA: Coletar todas as opções e priorizar matches exatos
+      const options = page.locator('mat-option:visible, .mat-option:visible');
+      const optionCount = await options.count();
+      
+      if (optionCount > 0) {
+        console.log(`📋 Encontradas ${optionCount} opções disponíveis`);
         
-        try {
-          const count = await strategy.count();
-          if (count > 0) {
-            const isVisible = await strategy.first().isVisible({ timeout: 2000 }).catch(() => false);
+        // 🔧 CORREÇÃO: Coletar todas as opções e seus matches primeiro
+        const optionMatches: Array<{option: any, text: string, matchType: 'exact' | 'partial' | 'parts', score: number}> = [];
+        
+        for (let i = 0; i < optionCount; i++) {
+          const option = options.nth(i);
+          const optionText = await option.textContent();
+          
+          if (optionText) {
+            const normalizedOptionText = optionText.trim().toLowerCase();
+            const normalizedVariation = variation.toLowerCase();
             
-            if (isVisible) {
-              console.log(`✅ Opção encontrada para: ${variation} (estratégia ${strategyIndex + 1})`);
-              await strategy.first().click();
-              optionFound = true;
-              selectedVariation = variation;
-              break;
+            // 🎯 PRIORIDADE 1: Match exato
+            if (normalizedOptionText === normalizedVariation) {
+              optionMatches.push({
+                option,
+                text: optionText,
+                matchType: 'exact',
+                score: 100
+              });
+            }
+            // 🎯 PRIORIDADE 2: Match parcial que contém a variação completa
+            else if (normalizedOptionText.includes(normalizedVariation)) {
+              // 🔧 CORREÇÃO: Verificar se é um match específico (não genérico)
+              const variationHasNumber = /\d+[ªº°]/.test(variation);
+              const optionHasNumber = /\d+[ªº°]/.test(optionText);
+              
+              // Se a variação tem número, a opção também deve ter o mesmo número
+              if (variationHasNumber && optionHasNumber) {
+                const variationNumber = variation.match(/\d+/)?.[0];
+                const optionNumber = optionText.match(/\d+/)?.[0];
+                
+                if (variationNumber === optionNumber) {
+                  optionMatches.push({
+                    option,
+                    text: optionText,
+                    matchType: 'partial',
+                    score: 90
+                  });
+                }
+              }
+              // Se não tem número, aceitar match parcial
+              else if (!variationHasNumber) {
+                optionMatches.push({
+                  option,
+                  text: optionText,
+                  matchType: 'partial',
+                  score: 80
+                });
+              }
+            }
+            // 🎯 PRIORIDADE 3: Match por partes (mais restritivo)
+            else {
+              const variationParts = normalizedVariation.split(' ').filter(part => part.length > 2);
+              const optionParts = normalizedOptionText.split(' ').filter(part => part.length > 2);
+              
+              const matchingParts = variationParts.filter(part => 
+                optionParts.some(optPart => optPart.includes(part) || part.includes(optPart))
+              );
+              
+              // 🔧 CORREÇÃO: Exigir match de pelo menos 80% das partes E verificar números
+              const requiredMatches = Math.ceil(variationParts.length * 0.8);
+              
+              if (matchingParts.length >= requiredMatches && matchingParts.length >= 3) {
+                // Verificar consistência de números
+                const variationHasNumber = /\d+[ªº°]/.test(variation);
+                const optionHasNumber = /\d+[ªº°]/.test(optionText);
+                
+                if (variationHasNumber && optionHasNumber) {
+                  const variationNumber = variation.match(/\d+/)?.[0];
+                  const optionNumber = optionText.match(/\d+/)?.[0];
+                  
+                  if (variationNumber === optionNumber) {
+                    optionMatches.push({
+                      option,
+                      text: optionText,
+                      matchType: 'parts',
+                      score: 70
+                    });
+                  }
+                } else if (!variationHasNumber) {
+                  optionMatches.push({
+                    option,
+                    text: optionText,
+                    matchType: 'parts',
+                    score: 60
+                  });
+                }
+              }
             }
           }
-        } catch (strategyError) {
-           console.log(`Estratégia ${strategyIndex + 1} falhou:`, strategyError instanceof Error ? strategyError.message : String(strategyError));
+        }
+        
+        // 🎯 SELEÇÃO: Escolher o melhor match (maior score)
+        if (optionMatches.length > 0) {
+          // Ordenar por score (maior primeiro)
+          optionMatches.sort((a, b) => b.score - a.score);
+          
+          const bestMatch = optionMatches[0];
+          console.log(`✅ Melhor match encontrado (${bestMatch.matchType}, score: ${bestMatch.score}): ${bestMatch.text}`);
+          
+          await bestMatch.option.click();
+          optionFound = true;
+          selectedVariation = variation;
         }
       }
       
@@ -649,6 +818,99 @@ export async function ojAlreadyAssigned(page: Page, ojName: string) {
   } catch (error) {
     // Em caso de erro, assume que não está cadastrado para continuar o processo
     console.log(`⚠️ Erro ao verificar se ${ojName} já está cadastrado:`, error);
+    return false;
+  }
+}
+
+/** Verifica se OJ com perfil específico já está cadastrado */
+export async function ojWithProfileAlreadyAssigned(page: Page, ojName: string, perfil: string) {
+  try {
+    // Gerar variações do nome para busca mais abrangente
+    const nameVariations = expandAbbreviations(ojName);
+    console.log(`🔍 Verificando se ${perfil} já está cadastrado em ${ojName} - Variações: ${nameVariations.join(', ')}`);
+    
+    // Aguardar um pouco para garantir que a página carregou completamente
+    await page.waitForTimeout(1000);
+    
+    // Verificar cada variação do nome
+    for (const variation of nameVariations) {
+      const escapedName = variation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const escapedPerfil = perfil.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      // Múltiplas estratégias de busca para encontrar linha com órgão E perfil
+      const searchStrategies = [
+        // Estratégia 1: Busca direta por texto
+        page.locator(`tr:has-text("${variation}"):has-text("${perfil}")`),
+        // Estratégia 2: Busca por regex em tbody
+        page.locator(`tbody tr`).filter({ hasText: new RegExp(escapedName, 'i') }).filter({ hasText: new RegExp(escapedPerfil, 'i') }),
+        // Estratégia 3: Busca por role="row"
+        page.locator(`[role="row"]:has-text("${variation}"):has-text("${perfil}")`),
+        // Estratégia 4: Busca por aria-label
+        page.locator(`[aria-label*="${variation}"][aria-label*="${perfil}"]`),
+        // Estratégia 5: Busca mais genérica
+        page.locator(`*:has-text("${variation}"):has-text("${perfil}")`),
+        // Estratégia 6: Busca por células específicas
+        page.locator(`td:has-text("${variation}")`).locator(`..`).filter({ hasText: new RegExp(escapedPerfil, 'i') }),
+        // Estratégia 7: Busca por qualquer elemento que contenha ambos
+        page.locator(`*`).filter({ hasText: new RegExp(escapedName, 'i') }).filter({ hasText: new RegExp(escapedPerfil, 'i') })
+      ];
+      
+      // Verifica se alguma estratégia encontra o OJ com o perfil específico
+      for (let i = 0; i < searchStrategies.length; i++) {
+        const strategy = searchStrategies[i];
+        try {
+          const count = await strategy.count();
+          if (count > 0) {
+            console.log(`✅ Perfil "${perfil}" já cadastrado em "${variation}" (estratégia ${i + 1})`);
+            
+            // Debug: mostrar o texto encontrado
+            const firstMatch = await strategy.first();
+            const text = await firstMatch.textContent();
+            console.log(`📝 Texto encontrado: "${text?.trim()}"`);
+            
+            return true;
+          }
+        } catch (strategyError) {
+          console.log(`⚠️ Erro na estratégia ${i + 1}:`, strategyError);
+          continue;
+        }
+      }
+    }
+    
+    console.log(`❌ Perfil "${perfil}" não encontrado em "${ojName}"`);
+    
+    // Debug: capturar estrutura da página para análise
+    try {
+      console.log(`🔍 DEBUG: Analisando estrutura da página...`);
+      
+      // Capturar todas as linhas da tabela
+      const allRows = await page.locator('tr, [role="row"]').all();
+      console.log(`📊 Total de linhas encontradas: ${allRows.length}`);
+      
+      // Mostrar primeiras 10 linhas para debug
+      for (let i = 0; i < Math.min(allRows.length, 10); i++) {
+        const row = allRows[i];
+        const text = await row.textContent();
+        const isVisible = await row.isVisible();
+        console.log(`Linha ${i + 1} (visível: ${isVisible}): "${text?.trim()}"`);
+      }
+      
+      // Verificar se há elementos com o nome do órgão
+      const orgaoElements = await page.locator(`*:has-text("${ojName}")`).all();
+      console.log(`🔍 Elementos com "${ojName}": ${orgaoElements.length}`);
+      
+      // Verificar se há elementos com o nome do perfil
+      const perfilElements = await page.locator(`*:has-text("${perfil}")`).all();
+      console.log(`🔍 Elementos com "${perfil}": ${perfilElements.length}`);
+      
+    } catch (debugError) {
+      console.log(`⚠️ Erro no debug:`, debugError);
+    }
+    
+    return false;
+  } catch (error) {
+    // Em caso de erro, assume que não está cadastrado para continuar o processo
+    console.log(`⚠️ Erro ao verificar se ${perfil} já está cadastrado em ${ojName}:`, error);
     return false;
   }
 }

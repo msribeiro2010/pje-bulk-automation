@@ -1,153 +1,194 @@
-# PJE Bulk KZ
+# PJE Bulk Automation
 
-Automação para inclusão em massa de perfis de servidores em órgãos julgadores no PJE.
+Sistema de automação profissional para inclusão de perfis em órgãos julgadores do PJE (Processo Judicial Eletrônico).
 
-## 🚀 Funcionalidades
+## ✨ Novas Funcionalidades
 
-- ✅ **Interface Web Dinâmica**: Configure tudo pela interface web
-- ✅ **URLs Dinâmicas**: Não precisa mais editar arquivos de configuração
-- ✅ **CPF Dinâmico**: Altere o CPF diretamente na interface
-- ✅ **Perfis Configuráveis**: Escolha o perfil na interface
-- ✅ **Órgãos Personalizáveis**: Digite os órgãos desejados
-- ✅ **Relatórios Automáticos**: CSV e JSON gerados automaticamente
-- ✅ **Screenshots**: Capturas de tela de sucessos e erros
+### 🎨 Interface Moderna e Profissional
+- **Design atualizado**: Interface mais limpa e profissional
+- **Remoção da animação do robô**: Substituída por loading mais elegante
+- **Painel de resultados aprimorado**: Layout em grid com cards modernos
+- **Responsividade melhorada**: Interface adaptável para diferentes dispositivos
 
-## 🛠️ Configuração Inicial
+### 🎛️ Controles de Automação Avançados
+- **Botão Pausar**: Pausa a automação em qualquer momento
+- **Botão Retomar**: Continua a automação após pausa
+- **Botão Parar**: Interrompe completamente a automação
+- **Barra de progresso**: Visualização do progresso em tempo real
+- **Status em tempo real**: Monitoramento contínuo do estado da automação
 
-1. **Instale as dependências:**
-   ```bash
-   npm install
-   ```
+### 📊 Relatório Executivo Detalhado
+- **Resumo executivo**: Estatísticas visuais com cards modernos
+- **Painel de sucessos**: Lista organizada dos órgãos incluídos com sucesso
+- **Painel de órgãos existentes**: Identificação dos que já estavam cadastrados
+- **Painel de erros**: Detalhamento dos problemas encontrados
+- **Análise detalhada**: Estatísticas completas com percentuais
 
-2. **Inicie o Chrome em modo debug:**
-   ```bash
-   npm run chrome-debug
-   ```
+## 🚀 Como Usar
 
-3. **Inicie o servidor web:**
-   ```bash
-   npm run server
-   ```
+### Pré-requisitos
+- Node.js 16+ instalado
+- Chrome ou Firefox para automação
+- Acesso ao sistema PJE
 
-4. **Acesse a interface web:**
-   ```
-   http://localhost:3000
-   ```
-
-## 🌐 Como Usar - Interface Web (Recomendado)
-
-1. **Faça login manualmente no PJE** na aba do Chrome que abriu
-
-2. **Acesse a interface web** em `http://localhost:3000`
-
-3. **Preencha os campos:**
-   - **URL do PJE**: URL completa da página pessoa física (ex: `https://pje.trt15.jus.br/pjekz/pessoa-fisica?pagina=1&tamanhoPagina=10&cpf=&situacao=1`)
-   - **CPF do Servidor**: CPF que receberá os perfis
-   - **Perfil**: Escolha o perfil na lista
-   - **Órgãos Julgadores**: Digite um órgão por linha
-
-4. **Clique em "Iniciar Automação"**
-
-5. **Acompanhe os resultados** na própria interface
-
-## 📋 Exemplo de Uso
-
-### URL do PJE:
-```
-https://pje.trt15.jus.br/pjekz/pessoa-fisica?pagina=1&tamanhoPagina=10&cpf=&situacao=1
-```
-
-### CPF:
-```
-530.361.406-97
-```
-
-### Órgãos Julgadores (um por linha):
-```
-Vara do Trabalho de Orlândia
-1ª VT de Ribeirão Preto
-2ª Vara do Trabalho de Franca
-EXE1 - Ribeirão Preto
-```
-
-## 🔧 Métodos Alternativos
-
-### Linha de Comando (Conexão Dinâmica)
-
+### Instalação
 ```bash
-npm run connect-dynamic "https://pje.trt15.jus.br/pjekz/pessoa-fisica?pagina=1&tamanhoPagina=10&cpf=&situacao=1" "530.361.406-97" "Servidor" "Vara do Trabalho de Orlândia,1ª VT de Ribeirão Preto"
+npm install
 ```
 
-### Método Legado (usando .env)
+### Execução
+```bash
+# Desenvolvimento
+npm run dev
 
-1. **Configure o arquivo .env:**
-   ```bash
-   cp .env.example .env
-   ```
+# Produção
+npm run build
+npm start
+```
 
-2. **Execute:**
-   ```bash
-   npm run connect
-   ```
+### Iniciar Chrome para Automação
+1. Clique no botão "🌐 Abrir Chrome para Automação"
+2. Aguarde o Chrome iniciar em modo debug
+3. Faça login no PJE manualmente
+
+### Executar Automação
+1. **Preencha os dados**:
+   - URL do PJE
+   - CPF do servidor
+   - Perfil desejado
+   - Órgãos julgadores (manual ou CSV)
+
+2. **Escolha o método de entrada**:
+   - **Digitação Manual**: Digite os órgãos linha por linha
+   - **Upload CSV**: Carregue arquivo CSV com os órgãos
+
+3. **Inicie a automação**:
+   - Clique em "🚀 Iniciar Automação"
+   - Monitore o progresso em tempo real
+   - Use os controles para pausar/retomar/parar
+
+## 📋 Funcionalidades
+
+### Controle de Automação
+- **⏸️ Pausar**: Pausa a automação temporariamente
+- **▶️ Retomar**: Continua a automação após pausa
+- **⏹️ Parar**: Interrompe completamente a automação
+- **📊 Progresso**: Barra de progresso em tempo real
+
+### Relatório de Resultados
+- **✅ Novos Cadastros**: Órgãos incluídos com sucesso
+- **🔄 Já Existiam**: Órgãos que já estavam cadastrados
+- **❌ Erros**: Problemas encontrados durante o processo
+- **📈 Estatísticas**: Análise detalhada com percentuais
+
+### Upload de CSV
+- Suporte a arquivos CSV até 5MB
+- Configuração de coluna e cabeçalho
+- Validação automática de dados
+- Relatório de importação
+
+### Normalização de Nomes
+- Botão para normalizar nomes de órgãos
+- Conversão automática para padrão PJE
+- Validação de formato
+
+## 🛠️ Tecnologias
+
+- **Backend**: Node.js, Express, TypeScript
+- **Automação**: Playwright
+- **Frontend**: HTML5, CSS3, JavaScript
+- **Processamento**: CSV parsing, normalização de dados
+
+## 📁 Estrutura do Projeto
+
+```
+pje-bulk-automation/
+├── src/
+│   ├── automation.ts          # Lógica principal de automação
+│   ├── automation-control.ts  # Controle de pausa/parada
+│   ├── server.ts             # Servidor Express
+│   ├── csv-importer.ts       # Importação de CSV
+│   └── helpers.ts            # Funções auxiliares
+├── public/
+│   └── index.html            # Interface web
+├── data/                     # Dados temporários e relatórios
+└── package.json
+```
+
+## 🔧 Configuração
+
+### Variáveis de Ambiente
+```bash
+NODE_ENV=development  # Ambiente de desenvolvimento
+PORT=3000            # Porta do servidor
+```
+
+### Scripts Disponíveis
+```bash
+npm run dev          # Desenvolvimento
+npm run build        # Build para produção
+npm start           # Produção
+npm run chrome-debug # Iniciar Chrome debug
+```
 
 ## 📊 Relatórios
 
-Os resultados são salvos automaticamente em:
-- `data/outputs/relatorio.csv` - Relatório em CSV
-- `data/outputs/relatorio.json` - Relatório detalhado em JSON
-- `data/outputs/ok_*.png` - Screenshots de sucessos
-- `data/outputs/err_*.png` - Screenshots de erros
+A aplicação gera relatórios detalhados em:
+- **CSV**: `data/relatorio.csv`
+- **JSON**: `data/relatorio.json`
 
-## 🏗️ Estrutura do Projeto
-
-```
-src/
-├── index.ts           # Script principal (legado)
-├── automation.ts      # Automação dinâmica
-├── connect-dynamic.ts # Conexão dinâmica
-├── helpers.ts         # Funções auxiliares
-└── server.ts          # Servidor web
-public/
-└── index.html         # Interface web
-data/
-└── outputs/           # Relatórios e screenshots
-```
-
-## 🔍 Perfis Disponíveis
-
-- Administrador
-- Assessor
-- Diretor de Central de Atendimento
-- Diretor de Secretaria
-- Estagiário Conhecimento
-- Estagiário de Central de Atendimento
-- Secretário de Audiência
-- Servidor
-
-## 🚨 Solução de Problemas
-
-### Chrome não conecta
-```bash
-# Mate todos os processos do Chrome e tente novamente
-pkill -f chrome
-npm run chrome-debug
+### Estrutura do Relatório
+```json
+{
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "config": {
+    "cpf": "000.000.000-00",
+    "perfil": "Servidor",
+    "totalOrgaos": 10
+  },
+  "summary": {
+    "total": 10,
+    "sucessos": 8,
+    "erros": 1,
+    "jaIncluidos": 1,
+    "estatisticas": {
+      "percentualSucesso": 80.0,
+      "percentualJaExistiam": 10.0,
+      "percentualErros": 10.0
+    }
+  }
+}
 ```
 
-### Servidor não encontrado
-- Verifique se o CPF está correto
-- Confirme se está logado no PJE
-- Verifique se a URL está correta
+## 🚨 Troubleshooting
 
-### Órgão não encontrado
-- Verifique a grafia exata do órgão
-- Confirme se o órgão existe no sistema
-- Veja os screenshots de erro em `data/outputs/`
+### Chrome não inicia
+- Verifique se o Chrome está instalado
+- Execute `npm run chrome-debug` manualmente
+- Verifique se a porta 9222 está livre
 
-## 🆕 Novidades da Versão Dinâmica
+### Automação não funciona
+- Verifique se está logado no PJE
+- Confirme se a URL está correta
+- Verifique se o CPF está no formato correto
 
-- ✅ **Sem necessidade de editar código**: Tudo configurável pela interface
-- ✅ **URLs flexíveis**: Funciona com qualquer instância do PJE
-- ✅ **CPF dinâmico**: Altere o CPF sem reiniciar
-- ✅ **Interface moderna**: Design responsivo e intuitivo
-- ✅ **Feedback em tempo real**: Acompanhe o progresso na tela
-- ✅ **Validação de dados**: Campos obrigatórios e formatação automática
+### Erros de CSV
+- Verifique se o arquivo é válido
+- Confirme a coluna dos órgãos
+- Verifique se há cabeçalho
+
+## 📝 Licença
+
+Este projeto é de uso interno para automação de processos judiciais.
+
+## 🤝 Contribuição
+
+Para contribuir com melhorias:
+1. Faça um fork do projeto
+2. Crie uma branch para sua feature
+3. Commit suas mudanças
+4. Abra um Pull Request
+
+---
+
+**PJE Bulk Automation** - Sistema profissional de automação para órgãos julgadores

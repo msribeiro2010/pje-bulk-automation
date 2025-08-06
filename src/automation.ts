@@ -6,7 +6,8 @@ import {
   goToServidorTab, 
   clickAddLocalizacao, 
   selectOrgaoJulgador,
-  ojAlreadyAssigned 
+  ojAlreadyAssigned,
+  ojWithProfileAlreadyAssigned
 } from './helpers';
 import { AutomationController } from './automation-control';
 
@@ -37,6 +38,24 @@ async function main() {
   const processId = `automation_${Date.now()}`;
   const controller = new AutomationController(processId);
   
+  // Sistema de logs em tempo real
+  const logsPath = path.join(__dirname, '../data/automation-logs.json');
+  let logs: Array<{timestamp: string, type: string, message: string, details?: any}> = [];
+  
+  function addLog(type: string, message: string, details?: any) {
+    const log = {
+      timestamp: new Date().toISOString(),
+      type,
+      message,
+      details
+    };
+    logs.push(log);
+    fs.writeFileSync(logsPath, JSON.stringify({ logs, currentStep: message }, null, 2));
+  }
+  
+  // Limpar logs anteriores
+  addLog('info', '🚀 Iniciando automação...', { cpf: config.cpf, perfil: config.perfil, totalOrgaos: config.orgaos.length });
+  
   console.log(`🚀 Iniciando automação para CPF: ${config.cpf}`);
   console.log(`📋 Perfil: ${config.perfil}`);
   console.log(`🏛️ Órgãos a processar: ${config.orgaos.length}`);
@@ -44,11 +63,24 @@ async function main() {
   console.log(`🎮 ID do processo: ${processId}`);
   console.log(`⏸️ Use a interface web para pausar/parar a automação`);
   
+  addLog('info', '📋 Configuração carregada', { 
+    cpf: config.cpf, 
+    perfil: config.perfil, 
+    totalOrgaos: config.orgaos.length,
+    orgaos: config.orgaos 
+  });
+  
   // Verificar se os órgãos não estão vazios
   const orgaosValidos = config.orgaos.filter(o => o && o.trim());
   console.log(`✅ Órgãos válidos após filtro: ${orgaosValidos.length}`);
   
+  addLog('info', '✅ Validação de órgãos concluída', { 
+    totalOrgaos: config.orgaos.length, 
+    orgaosValidos: orgaosValidos.length 
+  });
+  
   if (orgaosValidos.length === 0) {
+    addLog('error', '❌ Nenhum órgão válido encontrado!');
     console.log('❌ ERRO: Nenhum órgão válido encontrado!');
     console.log('📋 RESUMO FINAL:');
     console.log(`✅ Sucessos: 0`);
@@ -70,6 +102,7 @@ async function main() {
     
     if (isProduction) {
       // Em produção, usar Playwright em modo headless
+      addLog('info', '🌐 Conectando ao browser (modo produção)...');
       console.log('🌐 Ambiente de produção detectado - usando Playwright headless');
       browser = await chromium.launch({
         headless: true,
@@ -85,13 +118,16 @@ async function main() {
       });
       const context = await browser.newContext();
       page = await context.newPage();
+      addLog('success', '✅ Browser headless conectado com sucesso');
       console.log('✅ Browser headless iniciado');
     } else {
       // Em desenvolvimento, conectar ao Chrome existente
+      addLog('info', '🌐 Conectando ao Chrome existente...');
       browser = await chromium.connectOverCDP('http://localhost:9222');
       const contexts = browser.contexts();
       
       if (contexts.length === 0) {
+        addLog('error', '❌ Nenhum contexto encontrado no Chrome');
         throw new Error('Nenhum contexto encontrado no Chrome');
       }
       
@@ -126,6 +162,7 @@ async function main() {
     
     // Em produção, sempre navegar para a URL. Em desenvolvimento, verificar se já estamos na página correta
     if (isProduction || !currentUrl.includes(targetDomain)) {
+      addLog('info', `🌐 Navegando para o PJE...`);
       console.log(`🌐 Navegando para: ${config.pjeUrl}`);
       
       let navigationSuccess = false;
@@ -162,16 +199,20 @@ async function main() {
        }
       
       if (!navigationSuccess) {
+        addLog('error', '❌ Falha na navegação para o PJE');
         throw new Error('Não foi possível navegar para a URL do PJE. Verifique se a URL está correta e se o site está acessível.');
       }
       
       await page.waitForTimeout(5000); // Aguarda a página carregar
+      addLog('success', '✅ Página do PJE carregada com sucesso');
     }
     
     console.log('✅ Página do PJE detectada');
     
     // Buscar pelo CPF
+    addLog('info', `🔍 Buscando servidor com CPF: ${config.cpf}`);
     await searchByCPF(page, config.cpf);
+    addLog('success', '✅ Servidor encontrado com sucesso');
     
     // Aguardar resultados carregarem completamente
     console.log('⏳ Aguardando resultados da busca carregarem...');
@@ -188,6 +229,7 @@ async function main() {
     await goToServidorTab(page);
     
     // 🚀 OTIMIZAÇÃO: Verificação em lote de OJs já cadastrados com cache
+    addLog('info', '🔍 Verificando órgãos já cadastrados...');
     console.log('\n🔍 Verificando quais órgãos já estão cadastrados...');
     const ojsJaCadastrados = new Set<string>();
     const orgaosValidos = config.orgaos.filter(o => o && o.trim());
@@ -211,16 +253,28 @@ async function main() {
         continue;
       }
       
-      const jaIncluido = await ojAlreadyAssigned(page, orgaoTrimmed);
-      cacheVerificacao.set(orgaoTrimmed, jaIncluido);
+      // Verificar se o perfil específico já está cadastrado no órgão
+      const perfilJaCadastrado = await ojWithProfileAlreadyAssigned(page, orgaoTrimmed, config.perfil);
+      const orgaoJaCadastrado = await ojAlreadyAssigned(page, orgaoTrimmed);
       
-      if (jaIncluido) {
+      // Cache para evitar verificações duplicadas
+      cacheVerificacao.set(orgaoTrimmed, orgaoJaCadastrado);
+      
+      if (perfilJaCadastrado) {
         ojsJaCadastrados.add(orgaoTrimmed);
-        console.log(`✓ ${orgaoTrimmed} - já cadastrado`);
+        console.log(`✓ ${orgaoTrimmed} - perfil "${config.perfil}" já cadastrado`);
         results.push({ 
           orgao: orgaoTrimmed, 
           status: 'Já Incluído', 
-          erro: 'Órgão Julgador já estava incluído no perfil do servidor' 
+          erro: `Perfil "${config.perfil}" já está cadastrado na ${orgaoTrimmed}` 
+        });
+      } else if (orgaoJaCadastrado) {
+        ojsJaCadastrados.add(orgaoTrimmed);
+        console.log(`✓ ${orgaoTrimmed} - órgão já cadastrado (sem o perfil específico)`);
+        results.push({ 
+          orgao: orgaoTrimmed, 
+          status: 'Já Incluído', 
+          erro: `Órgão Julgador já estava incluído no perfil do servidor (sem o perfil "${config.perfil}")` 
         });
       }
     }
@@ -228,14 +282,22 @@ async function main() {
     // Filtrar apenas os OJs que precisam ser processados
     const ojsParaProcessar = orgaosValidos.filter(o => !ojsJaCadastrados.has(o.trim()));
     
+    addLog('info', '📊 Análise inicial concluída', {
+      jaCadastrados: ojsJaCadastrados.size,
+      paraProcessar: ojsParaProcessar.length,
+      total: orgaosValidos.length
+    });
+    
     console.log(`\n📊 ANÁLISE INICIAL:`);
     console.log(`🔄 Já cadastrados: ${ojsJaCadastrados.size}`);
     console.log(`⚡ Para processar: ${ojsParaProcessar.length}`);
     console.log(`📋 Total: ${orgaosValidos.length}`);
     
     if (ojsParaProcessar.length === 0) {
+      addLog('success', '🎉 Todos os órgãos já estão cadastrados!');
       console.log('\n🎉 Todos os órgãos já estão cadastrados! Nada a fazer.');
     } else {
+      addLog('info', `🚀 Iniciando processamento de ${ojsParaProcessar.length} órgãos...`);
       console.log(`\n🚀 Processando ${ojsParaProcessar.length} órgãos restantes...`);
     }
     
@@ -251,6 +313,7 @@ async function main() {
       
       const orgao = ojsParaProcessar[i].trim();
       
+      addLog('info', `🏛️ Processando órgão ${i + 1}/${ojsParaProcessar.length}: ${orgao}`);
       console.log(`\n🏛️ Processando (${i + 1}/${ojsParaProcessar.length}): ${orgao}`);
       
       try {
@@ -289,6 +352,7 @@ async function main() {
         // Selecionar o órgão julgador (a função já salva internamente)
         try {
           await selectOrgaoJulgador(page, orgao, config.perfil);
+          addLog('success', `✅ Órgão processado com sucesso: ${orgao}`);
           console.log(`✅ Sucesso: ${orgao}`);
           results.push({ orgao, status: 'Sucesso' });
           
@@ -296,6 +360,7 @@ async function main() {
           await page.waitForTimeout(1500);
           
         } catch (selectError) {
+          addLog('error', `❌ Erro ao processar órgão: ${orgao}`);
           console.log(`❌ Erro ao selecionar órgão ${orgao}:`, selectError);
           results.push({ orgao, status: 'Erro', erro: 'Órgão não encontrado ou erro na seleção' });
           
@@ -361,6 +426,7 @@ async function main() {
     }
     
     // Gerar relatório
+    addLog('info', '📊 Gerando relatório final...');
     await generateReport(results, config);
     
     // Resumo final detalhado
@@ -369,53 +435,18 @@ async function main() {
     const pulados = results.filter(r => r.status === 'Pulado').length;
     const jaIncluidos = results.filter(r => r.status === 'Já Incluído').length;
     
+    addLog('success', '🎯 Automação concluída com sucesso!', {
+      total: results.length,
+      sucessos,
+      erros,
+      jaIncluidos,
+      pulados
+    });
+    
     console.log('\n🎯 ========================================');
     console.log('📊 RELATÓRIO FINAL DE CADASTRO DE ÓRGÃOS');
     console.log('🎯 ========================================');
     console.log(`\n📋 TOTAL DE ÓRGÃOS PROCESSADOS: ${results.length}`);
-    console.log('\n📈 RESULTADOS DETALHADOS:');
-    console.log(`✅ NOVOS CADASTROS REALIZADOS: ${sucessos}`);
-    console.log(`🔄 JÁ EXISTIAM NO SISTEMA: ${jaIncluidos}`);
-    console.log(`❌ ERROS ENCONTRADOS: ${erros}`);
-    console.log(`⏭️ ÓRGÃOS PULADOS (vazios): ${pulados}`);
-    
-    // Calcular percentuais
-    const totalValidos = sucessos + jaIncluidos + erros;
-    if (totalValidos > 0) {
-      const percentualSucesso = ((sucessos / totalValidos) * 100).toFixed(1);
-      const percentualJaExistiam = ((jaIncluidos / totalValidos) * 100).toFixed(1);
-      const percentualErros = ((erros / totalValidos) * 100).toFixed(1);
-      
-      console.log('\n📊 ESTATÍSTICAS:');
-      console.log(`🎯 Taxa de sucesso: ${percentualSucesso}% (${sucessos}/${totalValidos})`);
-      console.log(`📋 Já cadastrados: ${percentualJaExistiam}% (${jaIncluidos}/${totalValidos})`);
-      console.log(`⚠️ Taxa de erro: ${percentualErros}% (${erros}/${totalValidos})`);
-    }
-    
-    // Mostrar órgãos com erro para facilitar correção
-    if (erros > 0) {
-      console.log('\n❌ ÓRGÃOS COM ERRO:');
-      results.filter(r => r.status === 'Erro').forEach((result, index) => {
-        console.log(`   ${index + 1}. ${result.orgao} - ${result.erro || 'Erro não especificado'}`);
-      });
-    }
-    
-    // Mostrar órgãos cadastrados com sucesso
-    if (sucessos > 0) {
-      console.log('\n✅ ÓRGÃOS CADASTRADOS COM SUCESSO:');
-      results.filter(r => r.status === 'Sucesso').forEach((result, index) => {
-        console.log(`   ${index + 1}. ${result.orgao}`);
-      });
-    }
-    
-    // Mostrar órgãos que já existiam
-    if (jaIncluidos > 0) {
-      console.log('\n🔄 ÓRGÃOS QUE JÁ EXISTIAM:');
-      results.filter(r => r.status === 'Já Incluído').forEach((result, index) => {
-        console.log(`   ${index + 1}. ${result.orgao}`);
-      });
-    }
-    
     console.log('\n🎯 ========================================');
     console.log('🏁 PROCESSO DE CADASTRO FINALIZADO!');
     console.log('🎯 ========================================\n');
@@ -431,9 +462,9 @@ async function main() {
       jaIncluidos: results.filter(r => r.status === 'Já Incluído').map(r => r.orgao),
       pulados: results.filter(r => r.status === 'Pulado').length,
       estatisticas: {
-        percentualSucesso: totalValidos > 0 ? parseFloat(((sucessos / totalValidos) * 100).toFixed(1)) : 0,
-        percentualJaExistiam: totalValidos > 0 ? parseFloat(((jaIncluidos / totalValidos) * 100).toFixed(1)) : 0,
-        percentualErros: totalValidos > 0 ? parseFloat(((erros / totalValidos) * 100).toFixed(1)) : 0
+        percentualSucesso: 0,
+        percentualJaExistiam: 0,
+        percentualErros: 0
       }
     };
     

@@ -6,6 +6,7 @@ import { spawn } from 'child_process';
 import { importOrgaosFromCSV } from './csv-importer';
 import { AutomationController } from './automation-control';
 import { normalizeOrgaoName } from './helpers';
+import { normalizarListaOrgaos, NormalizacaoResult } from './orgao-julgador-database';
 
 const app = express();
 const PORT = 3000;
@@ -115,10 +116,109 @@ app.get('/api/automation/status', (req, res) => {
     if (status) {
       res.json(status);
     } else {
-      res.json({ status: 'idle', message: 'Nenhuma automação ativa' });
+      // Quando não há arquivo de controle, significa que não há automação ativa
+      res.json({ 
+        status: 'idle', 
+        message: 'Nenhuma automação ativa',
+        timestamp: Date.now()
+      });
     }
   } catch (error) {
     console.error('Erro ao obter status da automação:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Rota para buscar resultados da automação
+app.get('/api/automation/results', (req, res) => {
+  try {
+    const resultPath = path.join(__dirname, '../data/automation-result.json');
+    if (fs.existsSync(resultPath)) {
+      const resultContent = fs.readFileSync(resultPath, 'utf-8');
+      
+      // Verificar se o conteúdo não está vazio
+      if (!resultContent.trim()) {
+        console.error('Arquivo automation-result.json está vazio');
+        return res.status(404).json({ error: 'Arquivo de resultado está vazio' });
+      }
+      
+      const result = JSON.parse(resultContent);
+      
+      // Remover o arquivo após ler (comentado para testes)
+      // fs.unlinkSync(resultPath);
+      
+      res.json(result);
+    } else {
+      res.status(404).json({ error: 'Nenhum resultado disponível' });
+    }
+  } catch (error) {
+    console.error('Erro ao buscar resultados:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Rota para obter logs em tempo real
+app.get('/api/automation/logs', (req, res) => {
+  try {
+    const logPath = path.join(__dirname, '../data/automation-logs.json');
+    if (fs.existsSync(logPath)) {
+      const logContent = fs.readFileSync(logPath, 'utf-8');
+      const logs = JSON.parse(logContent);
+      res.json(logs);
+    } else {
+      res.json({ logs: [], currentStep: 'Aguardando início...' });
+    }
+  } catch (error) {
+    console.error('Erro ao obter logs:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
+// Rota para limpar todos os dados de resultados anteriores
+app.post('/api/automation/clear-data', (req, res) => {
+  try {
+    const dataDir = path.join(__dirname, '../data');
+    const filesToClear = [
+      'automation-result.json',
+      'automation-logs.json',
+      'temp-config.json',
+      'relatorio.json'
+    ];
+    
+    let clearedFiles: string[] = [];
+    
+    filesToClear.forEach(filename => {
+      const filePath = path.join(dataDir, filename);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        clearedFiles.push(filename);
+        console.log(`🗑️ Arquivo removido: ${filename}`);
+      }
+    });
+    
+    // Limpar também arquivos de upload temporários
+    const uploadsDir = path.join(dataDir, 'uploads');
+    if (fs.existsSync(uploadsDir)) {
+      const uploadFiles = fs.readdirSync(uploadsDir);
+      uploadFiles.forEach(file => {
+        const filePath = path.join(uploadsDir, file);
+        if (fs.statSync(filePath).isFile()) {
+          fs.unlinkSync(filePath);
+          clearedFiles.push(`uploads/${file}`);
+          console.log(`🗑️ Arquivo de upload removido: ${file}`);
+        }
+      });
+    }
+    
+    console.log(`✅ Limpeza completa realizada - ${clearedFiles.length} arquivos removidos`);
+    
+    res.json({ 
+      success: true, 
+      message: 'Dados limpos com sucesso', 
+      clearedFiles: clearedFiles 
+    });
+  } catch (error) {
+    console.error('Erro ao limpar dados:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
@@ -354,6 +454,33 @@ app.post('/api/test-route', (req, res) => {
 
 console.log('📋 Rota /api/test-route registrada');
 
+// Rota para normalizar órgãos
+app.post('/api/normalize-orgaos', (req, res) => {
+  try {
+    const { orgaos } = req.body;
+    
+    if (!Array.isArray(orgaos)) {
+      return res.status(400).json({ error: 'Lista de órgãos deve ser um array' });
+    }
+    
+    const resultados = normalizarListaOrgaos(orgaos);
+    
+    res.json({
+      message: 'Órgãos normalizados com sucesso',
+      resultados: resultados,
+      resumo: {
+        total: resultados.length,
+        encontrados: resultados.filter(r => r.encontrado).length,
+        naoEncontrados: resultados.filter(r => !r.encontrado).length
+      }
+    });
+    
+  } catch (error) {
+    console.error('Erro ao normalizar órgãos:', error);
+    res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+});
+
 // Rota para executar a automação
 app.post('/api/run-automation', async (req, res) => {
   try {
@@ -365,26 +492,58 @@ app.post('/api/run-automation', async (req, res) => {
     
     console.log('🚀 Iniciando automação com:', { cpf, perfil, orgaos: orgaos.length, pjeUrl });
     
+    // Normalizar órgãos antes da automação
+    console.log('🔍 Normalizando órgãos antes da automação...');
+    const orgaosNormalizados = normalizarListaOrgaos(orgaos);
+    
+    // Filtrar apenas órgãos encontrados e usar nomes normalizados
+    const orgaosValidos = orgaosNormalizados
+      .filter(resultado => resultado.encontrado)
+      .map(resultado => resultado.normalizado);
+    
+    const orgaosNaoEncontrados = orgaosNormalizados
+      .filter(resultado => !resultado.encontrado)
+      .map(resultado => resultado.original);
+    
+    console.log(`✅ Órgãos normalizados: ${orgaosValidos.length}/${orgaos.length}`);
+    console.log(`❌ Órgãos não encontrados: ${orgaosNaoEncontrados.length}`);
+    
+    if (orgaosNaoEncontrados.length > 0) {
+      console.log('⚠️ Órgãos não encontrados:', orgaosNaoEncontrados);
+    }
+    
     // Criar arquivo temporário com os dados
     const tempData = {
       cpf,
       perfil,
-      orgaos,
-      pjeUrl
+      orgaos: orgaosValidos, // Usar órgãos normalizados
+      pjeUrl,
+      normalizacao: {
+        total: orgaos.length,
+        encontrados: orgaosValidos.length,
+        naoEncontrados: orgaosNaoEncontrados.length,
+        detalhes: orgaosNormalizados
+      }
     };
     
     const tempFile = path.join(__dirname, '../data/temp-config.json');
     fs.writeFileSync(tempFile, JSON.stringify(tempData, null, 2));
     
-    // Executar a automação
-    const result = await runAutomation(tempFile);
+    // Executar a automação em background
+    runAutomationInBackground(tempFile);
     
-    // Limpar arquivo temporário
-    if (fs.existsSync(tempFile)) {
-      fs.unlinkSync(tempFile);
-    }
-    
-    res.json(result);
+    // Retornar imediatamente com status de iniciado
+    res.json({ 
+      message: 'Automação iniciada com sucesso',
+      status: 'started',
+      processId: process.pid,
+      normalizacao: {
+        total: orgaos.length,
+        encontrados: orgaosValidos.length,
+        naoEncontrados: orgaosNaoEncontrados.length,
+        orgaosNaoEncontrados: orgaosNaoEncontrados
+      }
+    });
     
   } catch (error) {
     console.error('Erro na automação:', error);
@@ -392,7 +551,105 @@ app.post('/api/run-automation', async (req, res) => {
   }
 });
 
-// Função para executar a automação
+// Função para executar a automação em background
+function runAutomationInBackground(configFile: string) {
+  const child = spawn('ts-node', ['src/automation.ts', configFile], {
+    cwd: path.join(__dirname, '..'),
+    stdio: ['pipe', 'pipe', 'pipe'],
+    detached: true
+  });
+  
+  let output = '';
+  let errorOutput = '';
+  
+  child.stdout.on('data', (data) => {
+    const text = data.toString();
+    output += text;
+    console.log(text);
+  });
+  
+  child.stderr.on('data', (data) => {
+    const text = data.toString();
+    errorOutput += text;
+    console.error(text);
+  });
+  
+  child.on('close', (code) => {
+    try {
+      // Tentar extrair resultado JSON estruturado do output
+      const jsonMatch = output.match(/=== RESULTADO_FINAL_JSON ===\n([\s\S]*?)\n=== FIM_RESULTADO_FINAL_JSON ===/); 
+      
+      if (jsonMatch && jsonMatch[1]) {
+        try {
+          const result = JSON.parse(jsonMatch[1].trim());
+          console.log('✅ Resultado estruturado capturado:', result);
+          // Salvar resultado para o frontend buscar
+          fs.writeFileSync(path.join(__dirname, '../data/automation-result.json'), JSON.stringify(result, null, 2));
+        } catch (parseError) {
+          console.log('⚠️ Erro ao fazer parse do JSON estruturado:', parseError);
+        }
+      }
+      
+      // Fallback: tentar ler o relatório gerado
+      const reportPath = path.join(__dirname, '../data/relatorio.json');
+      if (fs.existsSync(reportPath)) {
+        const reportContent = fs.readFileSync(reportPath, 'utf-8');
+        const reportData = JSON.parse(reportContent);
+        
+        // Processar os resultados do relatório
+        const sucessos: string[] = [];
+        const erros: string[] = [];
+        const jaIncluidos: Array<{ orgao: string; erro: string }> = [];
+        
+        if (reportData.results && Array.isArray(reportData.results)) {
+          reportData.results.forEach((item: any) => {
+            if (item.status === 'Sucesso') {
+              sucessos.push(item.orgao);
+            } else if (item.status === 'Já Incluído') {
+              // Para órgãos já incluídos, incluir o objeto completo com erro detalhado
+              jaIncluidos.push({
+                orgao: item.orgao,
+                erro: item.erro || 'Já cadastrado'
+              });
+            } else {
+              erros.push(item.orgao);
+            }
+          });
+        }
+        
+        const result = {
+          total: reportData.summary.total,
+          sucessos: sucessos,
+          erros: erros,
+          jaIncluidos: jaIncluidos,
+          pulados: reportData.summary.pulados || 0,
+          estatisticas: reportData.summary.estatisticas
+        };
+        
+        console.log('✅ Resultado do relatório JSON capturado:', result);
+        // Salvar resultado para o frontend buscar
+        fs.writeFileSync(path.join(__dirname, '../data/automation-result.json'), JSON.stringify(result, null, 2));
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro ao processar resultados:', error);
+    } finally {
+      // Limpar arquivo temporário
+      if (fs.existsSync(configFile)) {
+        fs.unlinkSync(configFile);
+      }
+      
+      // Limpar controle da automação (será feito pelo processo filho)
+    }
+  });
+  
+  child.on('error', (error) => {
+    console.error('❌ Erro ao executar automação:', error);
+    // Limpar controle da automação (será feito pelo processo filho)
+  });
+}
+
+// Função para executar a automação (mantida para compatibilidade)
 function runAutomation(configFile: string): Promise<AutomationResult> {
   return new Promise((resolve, reject) => {
     const child = spawn('ts-node', ['src/automation.ts', configFile], {
@@ -437,11 +694,28 @@ function runAutomation(configFile: string): Promise<AutomationResult> {
           const reportContent = fs.readFileSync(reportPath, 'utf-8');
           const reportData = JSON.parse(reportContent);
           
+          // Processar os resultados do relatório
+          const sucessos: string[] = [];
+          const erros: string[] = [];
+          const jaIncluidos: string[] = [];
+          
+          if (reportData.results && Array.isArray(reportData.results)) {
+            reportData.results.forEach((item: any) => {
+              if (item.status === 'Sucesso') {
+                sucessos.push(item.orgao);
+              } else if (item.status === 'Já Existia') {
+                jaIncluidos.push(item.orgao);
+              } else {
+                erros.push(item.orgao);
+              }
+            });
+          }
+          
           const result = {
             total: reportData.summary.total,
-            sucessos: reportData.detalhes.orgaosCadastrados || [],
-            erros: reportData.detalhes.orgaosComErro || [],
-            jaIncluidos: reportData.detalhes.orgaosJaExistiam || [],
+            sucessos: sucessos,
+            erros: erros,
+            jaIncluidos: jaIncluidos,
             pulados: reportData.summary.pulados || 0,
             estatisticas: reportData.summary.estatisticas
           };
