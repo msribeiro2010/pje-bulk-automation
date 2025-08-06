@@ -1,0 +1,109 @@
+{
+  "logs": [
+    {
+      "timestamp": "2025-08-06T21:24:41.043Z",
+      "type": "info",
+      "message": "🚀 Iniciando automação...",
+      "details": {
+        "cpf": "530.361.406-97",
+        "perfil": "Assessor",
+        "totalOrgaos": 1
+      }
+    },
+    {
+      "timestamp": "2025-08-06T21:24:41.044Z",
+      "type": "info",
+      "message": "📋 Configuração carregada",
+      "details": {
+        "cpf": "530.361.406-97",
+        "perfil": "Assessor",
+        "totalOrgaos": 1,
+        "orgaos": [
+          "1ª Vara do Trabalho de Sorocaba"
+        ]
+      }
+    },
+    {
+      "timestamp": "2025-08-06T21:24:41.044Z",
+      "type": "info",
+      "message": "✅ Validação de órgãos concluída",
+      "details": {
+        "totalOrgaos": 1,
+        "orgaosValidos": 1
+      }
+    },
+    {
+      "timestamp": "2025-08-06T21:24:41.044Z",
+      "type": "info",
+      "message": "🌐 Conectando ao Chrome existente..."
+    },
+    {
+      "timestamp": "2025-08-06T21:24:43.031Z",
+      "type": "info",
+      "message": "🌐 Navegando para o PJE..."
+    },
+    {
+      "timestamp": "2025-08-06T21:24:50.508Z",
+      "type": "success",
+      "message": "✅ Página do PJE carregada com sucesso"
+    },
+    {
+      "timestamp": "2025-08-06T21:24:50.510Z",
+      "type": "info",
+      "message": "🔍 Buscando servidor com CPF: 530.361.406-97"
+    },
+    {
+      "timestamp": "2025-08-06T21:24:54.696Z",
+      "type": "success",
+      "message": "✅ Servidor encontrado com sucesso"
+    },
+    {
+      "timestamp": "2025-08-06T21:25:07.321Z",
+      "type": "info",
+      "message": "🔍 Verificando órgãos já cadastrados..."
+    },
+    {
+      "timestamp": "2025-08-06T21:25:08.543Z",
+      "type": "info",
+      "message": "📊 Análise inicial concluída",
+      "details": {
+        "jaCadastrados": 0,
+        "paraProcessar": 1,
+        "total": 1
+      }
+    },
+    {
+      "timestamp": "2025-08-06T21:25:08.543Z",
+      "type": "info",
+      "message": "🚀 Iniciando processamento de 1 órgãos..."
+    },
+    {
+      "timestamp": "2025-08-06T21:25:08.545Z",
+      "type": "info",
+      "message": "🏛️ Processando órgão 1/1: 1ª Vara do Trabalho de Sorocaba"
+    },
+    {
+      "timestamp": "2025-08-06T21:25:24.907Z",
+      "type": "success",
+      "message": "✅ Órgão processado com sucesso: 1ª Vara do Trabalho de Sorocaba"
+    },
+    {
+      "timestamp": "2025-08-06T21:25:26.414Z",
+      "type": "info",
+      "message": "📊 Gerando relatório final..."
+    },
+    {
+      "timestamp": "2025-08-06T21:25:26.420Z",
+      "type": "success",
+      "message": "🎯 Automação concluída com sucesso!",
+      "details": {
+        "total": 1,
+        "sucessos": 1,
+        "erros": 0,
+        "jaIncluidos": 0,
+        "pulados": 0
+      }
+    }
+  ],
+  "currentStep": "🎯 Automação concluída com sucesso!"
+}

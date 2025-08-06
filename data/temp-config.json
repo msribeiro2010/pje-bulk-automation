@@ -1,0 +1,21 @@
+{
+  "cpf": "530.361.406-97",
+  "perfil": "Assessor",
+  "orgaos": [
+    "1ª Vara do Trabalho de Sorocaba"
+  ],
+  "pjeUrl": "https://pje.trt15.jus.br/pjekz/pessoa-fisica",
+  "normalizacao": {
+    "total": 1,
+    "encontrados": 1,
+    "naoEncontrados": 0,
+    "detalhes": [
+      {
+        "original": "1ª Vara do Trabalho de Sorocaba",
+        "normalizado": "1ª Vara do Trabalho de Sorocaba",
+        "encontrado": true,
+        "similaridade": 1
+      }
+    ]
+  }
+}

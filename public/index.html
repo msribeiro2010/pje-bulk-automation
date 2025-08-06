@@ -1529,8 +1529,7 @@
         });
 
         async function submitManualForm(e) {
-            // Resetar dados da automação anterior
-            await resetPanelsData();
+            // Não fazer limpeza completa ao iniciar automação
             
             const pjeUrl = document.getElementById('pjeUrl').value;
             const cpf = document.getElementById('cpf').value;
@@ -1583,8 +1582,7 @@
         }
 
         async function submitCSVForm(e) {
-            // Resetar dados da automação anterior
-            await resetPanelsData();
+            // Não fazer limpeza completa ao iniciar automação
             
             if (!selectedFile) {
                 alert('Por favor, selecione um arquivo CSV.');
