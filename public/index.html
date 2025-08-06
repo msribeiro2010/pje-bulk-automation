@@ -16,7 +16,7 @@
         
         body {
             font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #f4e4bc 0%, #d4a574 100%);
             background-attachment: fixed;
             min-height: 100vh;
             padding: 20px;
@@ -60,8 +60,8 @@
         }
         
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #c8956d 0%, #a67c52 100%);
+            color: #f5f1e8;
             padding: 25px 30px;
             text-align: center;
             position: relative;
@@ -144,15 +144,15 @@
         
         input:focus, textarea:focus, select:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1), 0 8px 25px rgba(102, 126, 234, 0.15);
+            border-color: #c8956d;
+            box-shadow: 0 0 0 4px rgba(200, 149, 109, 0.1), 0 8px 25px rgba(200, 149, 109, 0.15);
             background: rgba(255, 255, 255, 0.95);
             transform: translateY(-2px);
         }
         
         input:hover, textarea:hover, select:hover {
-            border-color: #b8c5f2;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);
+            border-color: #d4a574;
+            box-shadow: 0 4px 15px rgba(200, 149, 109, 0.1);
         }
         
         textarea {
@@ -161,8 +161,8 @@
         }
         
         .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: linear-gradient(135deg, #c8956d 0%, #a67c52 100%);
+            color: #f5f1e8;
             border: none;
             padding: 12px 24px;
             border-radius: 8px;
@@ -173,7 +173,7 @@
             width: 100%;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 15px rgba(200, 149, 109, 0.4);
         }
         
         .btn::before {
@@ -776,6 +776,7 @@
         }
         
         .chrome-status {
+            position: relative;
             padding: 15px;
             margin-bottom: 20px;
             border-radius: 8px;
@@ -1174,6 +1175,23 @@
         <div class="form-container">
             <div id="chromeStatus" class="chrome-status" style="display: none;">
                 <div id="chromeStatusText">🔄 Verificando status do Chrome...</div>
+                <button type="button" id="hideChromeStatusBtn" style="
+                    position: absolute;
+                    top: 8px;
+                    right: 8px;
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    border-radius: 50%;
+                    width: 24px;
+                    height: 24px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    color: #fff;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.3s ease;
+                " title="Ocultar status do Chrome">✕</button>
             </div>
             
             <button type="button" class="btn-secondary" id="openChromeBtn">
@@ -1181,10 +1199,16 @@
             </button>
             
             <form id="automationForm">
-                <div class="form-group">
+                <div class="form-group" id="urlGroup" style="display: none;">
                     <label for="pjeUrl">URL do PJE:</label>
                     <input type="url" id="pjeUrl" name="pjeUrl" value="https://pje.trt15.jus.br/pjekz/pessoa-fisica" placeholder="https://pje.trt15.jus.br/pjekz/pessoa-fisica" required>
                     <div class="help-text">URL completa da página de pessoa física do PJE (deixe o CPF vazio na URL)</div>
+                </div>
+                
+                <div class="form-group">
+                    <button type="button" id="toggleUrlBtn" class="btn-secondary" style="background: linear-gradient(135deg, #d4a574 0%, #c19653 100%); border: none; padding: 8px 16px; font-size: 0.9em; margin-bottom: 10px;">
+                        ⚙️ Configurar URL do PJE
+                    </button>
                 </div>
                 
                 <div class="form-group">
@@ -1294,6 +1318,10 @@
                 </div>
                 <div class="processing-text">⚖️ Processando automação...</div>
                 <div class="processing-subtitle" id="current-step">Iniciando automação...</div>
+                <div class="current-orgao-display" id="current-orgao-display" style="margin-top: 15px; padding: 12px; background: rgba(255,255,255,0.1); border-radius: 8px; border-left: 4px solid #4CAF50; display: none;">
+                    <div style="font-size: 0.9em; color: #ccc; margin-bottom: 5px;">🏛️ Órgão Julgador Atual:</div>
+                    <div style="font-weight: bold; color: #fff; font-size: 1.1em;" id="current-orgao-name">-</div>
+                </div>
                 <div class="progress-bar">
                     <div class="progress-fill"></div>
                 </div>
@@ -1680,19 +1708,29 @@
                 const data = await response.json();
                 
                 if (data.logs && data.logs.length > 0) {
-                    updateLogsDisplay(data.logs, data.currentStep);
+                    updateLogsDisplay(data.logs, data.currentStep, data.currentOrgao);
                 }
             } catch (error) {
                 console.error('Erro ao buscar logs:', error);
             }
         }
         
-        function updateLogsDisplay(logs, currentStep) {
+        function updateLogsDisplay(logs, currentStep, currentOrgao) {
             const logsContainer = document.getElementById('logs-container');
             const currentStepElement = document.getElementById('current-step');
+            const currentOrgaoElement = document.getElementById('current-orgao');
             
             if (currentStepElement) {
                 currentStepElement.textContent = currentStep || 'Processando...';
+            }
+            
+            if (currentOrgaoElement) {
+                if (currentOrgao && currentOrgao.trim() !== '') {
+                    currentOrgaoElement.textContent = currentOrgao;
+                    currentOrgaoElement.parentElement.style.display = 'block';
+                } else {
+                    currentOrgaoElement.parentElement.style.display = 'none';
+                }
             }
             
             if (logsContainer) {
@@ -2999,6 +3037,43 @@
             const automationControls = document.getElementById('automation-controls');
             if (automationControls) {
                 automationControls.style.display = 'none';
+            }
+            
+            // Configurar botão de toggle da URL
+            const toggleUrlBtn = document.getElementById('toggleUrlBtn');
+            const urlGroup = document.getElementById('urlGroup');
+            
+            if (toggleUrlBtn && urlGroup) {
+                toggleUrlBtn.addEventListener('click', function() {
+                    if (urlGroup.style.display === 'none') {
+                        urlGroup.style.display = 'block';
+                        toggleUrlBtn.innerHTML = '🔒 Ocultar URL do PJE';
+                        toggleUrlBtn.style.background = 'linear-gradient(135deg, #c19653 0%, #a67c52 100%)';
+                    } else {
+                        urlGroup.style.display = 'none';
+                        toggleUrlBtn.innerHTML = '⚙️ Configurar URL do PJE';
+                        toggleUrlBtn.style.background = 'linear-gradient(135deg, #d4a574 0%, #c19653 100%)';
+                    }
+                });
+            }
+            
+            // Listener para o botão de ocultar status do Chrome
+            const hideChromeStatusBtn = document.getElementById('hideChromeStatusBtn');
+            const chromeStatus = document.getElementById('chromeStatus');
+            
+            if (hideChromeStatusBtn && chromeStatus) {
+                hideChromeStatusBtn.addEventListener('click', function() {
+                    chromeStatus.style.display = 'none';
+                });
+                
+                // Adicionar hover effect
+                hideChromeStatusBtn.addEventListener('mouseenter', function() {
+                    this.style.background = 'rgba(255,255,255,0.4)';
+                });
+                
+                hideChromeStatusBtn.addEventListener('mouseleave', function() {
+                    this.style.background = 'rgba(255,255,255,0.2)';
+                });
             }
             
             // Atualizar status da automação

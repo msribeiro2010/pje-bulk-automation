@@ -42,6 +42,8 @@ async function main() {
   const logsPath = path.join(__dirname, '../data/automation-logs.json');
   let logs: Array<{timestamp: string, type: string, message: string, details?: any}> = [];
   
+  let currentOrgao = '';
+  
   function addLog(type: string, message: string, details?: any) {
     const log = {
       timestamp: new Date().toISOString(),
@@ -50,7 +52,12 @@ async function main() {
       details
     };
     logs.push(log);
-    fs.writeFileSync(logsPath, JSON.stringify({ logs, currentStep: message }, null, 2));
+    fs.writeFileSync(logsPath, JSON.stringify({ logs, currentStep: message, currentOrgao }, null, 2));
+  }
+  
+  function setCurrentOrgao(orgao: string) {
+    currentOrgao = orgao;
+    fs.writeFileSync(logsPath, JSON.stringify({ logs, currentStep: logs.length > 0 ? logs[logs.length - 1].message : 'Iniciando...', currentOrgao }, null, 2));
   }
   
   // Limpar logs anteriores
@@ -313,6 +320,9 @@ async function main() {
       
       const orgao = ojsParaProcessar[i].trim();
       
+      // Definir o órgão atual sendo processado
+      setCurrentOrgao(orgao);
+      
       addLog('info', `🏛️ Processando órgão ${i + 1}/${ojsParaProcessar.length}: ${orgao}`);
       console.log(`\n🏛️ Processando (${i + 1}/${ojsParaProcessar.length}): ${orgao}`);
       
@@ -435,6 +445,9 @@ async function main() {
     const pulados = results.filter(r => r.status === 'Pulado').length;
     const jaIncluidos = results.filter(r => r.status === 'Já Incluído').length;
     
+    // Limpar órgão atual ao finalizar
+    setCurrentOrgao('');
+    
     addLog('success', '🎯 Automação concluída com sucesso!', {
       total: results.length,
       sucessos,
@@ -474,6 +487,9 @@ async function main() {
     console.log('=== FIM_RESULTADO_FINAL_JSON ===\n');
     
   } catch (error) {
+    // Limpar órgão atual em caso de erro
+    setCurrentOrgao('');
+    
     console.error('❌ Erro na automação:', error);
     
     // Retornar erro estruturado
@@ -492,7 +508,8 @@ async function main() {
     
     process.exit(1);
   } finally {
-    // Limpar arquivo de controle
+    // Limpar órgão atual e arquivo de controle
+    setCurrentOrgao('');
     controller.cleanup();
     
     // Fechar o browser apenas se estivermos em modo headless (produção)
